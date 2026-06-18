@@ -1,0 +1,28 @@
+{
+  "id": "com.colon360.app",
+  "name": "Colón 360",
+  "short_name": "Colón 360",
+  "description": "Tu guía de viaje para Colón, Entre Ríos. Playas, gastronomía, atractivos, eventos y servicios útiles para tu visita.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#1a3a2a",
+  "background_color": "#f5f0e8",
+  "lang": "es",
+  "categories": ["travel", "lifestyle", "navigation"],
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable any"
+    }
+  ]
+}
