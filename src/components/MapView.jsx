@@ -1,159 +1,115 @@
 import { useEffect, useRef, useState } from "react";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
 import { CAT_COLOR } from "../data/constants.js";
 
-const COLON_CENTER = { lat: -32.2261, lng: -58.1415 };
-const RADIO_COLON = 3000; // 3 km — solo muestra dentro de Colón
+const COLON_CENTER = [-32.2261, -58.1415];
 
-const PLACES_CONFIG = {
-  "Playa":     { keyword: "playa balneario", radius: RADIO_COLON },
-  "Hotel":     { type: "lodging",            radius: RADIO_COLON },
-  "Rest.":     { type: "restaurant",         radius: RADIO_COLON },
-  "Café":      { type: "cafe",               radius: RADIO_COLON },
-  "Atracción": { type: "tourist_attraction", radius: RADIO_COLON },
-  "Deporte":   { keyword: "deporte kayak",   radius: RADIO_COLON },
+// Puntos de interés propios de Colón por categoría
+const LUGARES_PROPIOS = {
+  "Playa": [
+    { id: "p1", label: "Playa Norte", lat: -32.2118, lng: -58.1335, cat: "Playa", address: "Costanera Norte" },
+    { id: "p2", label: "Playa Honda", lat: -32.2332, lng: -58.1315, cat: "Playa", address: "Costanera Sur" },
+    { id: "p3", label: "Playa Inkier", lat: -32.2200, lng: -58.1320, cat: "Playa", address: "Av. Costanera" },
+  ],
+  "Hotel": [
+    { id: "h1", label: "Hotel Termal Colón", lat: -32.2270, lng: -58.1450, cat: "Hotel", address: "Av. Quirós 232" },
+    { id: "h2", label: "Apart Hotel Río", lat: -32.2240, lng: -58.1400, cat: "Hotel", address: "Av. Costanera 180" },
+    { id: "h3", label: "Hostería del Puerto", lat: -32.2260, lng: -58.1380, cat: "Hotel", address: "Urquiza 456" },
+  ],
+  "Rest.": [
+    { id: "r1", label: "Terrazas de Colón", lat: -32.2255, lng: -58.1410, cat: "Rest.", address: "Costanera y Bv. Gálvez" },
+    { id: "r2", label: "Parrilla Don Coco", lat: -32.2280, lng: -58.1445, cat: "Rest.", address: "Paysandú 145" },
+    { id: "r3", label: "La Estancia", lat: -32.2265, lng: -58.1430, cat: "Rest.", address: "12 de Abril 320" },
+    { id: "r4", label: "El Establo", lat: -32.2290, lng: -58.1420, cat: "Rest.", address: "Alberdi 210" },
+  ],
+  "Café": [
+    { id: "c1", label: "Café del Puerto", lat: -32.2248, lng: -58.1390, cat: "Café", address: "Av. Costanera 90" },
+    { id: "c2", label: "Heladería El Rey", lat: -32.2270, lng: -58.1455, cat: "Café", address: "San Martín 112" },
+    { id: "c3", label: "Bar Central", lat: -32.2275, lng: -58.1440, cat: "Café", address: "Av. Quirós 88" },
+  ],
+  "Atracción": [
+    { id: "a1", label: "Termas de Colón", lat: -32.2290, lng: -58.1460, cat: "Atracción", address: "Ruta Pcial. 135" },
+    { id: "a2", label: "Parque Quirós", lat: -32.2235, lng: -58.1395, cat: "Atracción", address: "Av. Quirós s/n" },
+    { id: "a3", label: "Costanera Colón", lat: -32.2252, lng: -58.1330, cat: "Atracción", address: "Av. Costanera" },
+    { id: "a4", label: "Parque Nacional El Palmar", lat: -32.1868, lng: -58.0896, cat: "Atracción", address: "Ruta Nac. 14" },
+  ],
+  "Deporte": [
+    { id: "d1", label: "Molino Aventura", lat: -32.2210, lng: -58.1350, cat: "Deporte", address: "Acceso Norte" },
+    { id: "d2", label: "Club Náutico Colón", lat: -32.2230, lng: -58.1340, cat: "Deporte", address: "Puerto Viejo" },
+    { id: "d3", label: "Ciclovía Costanera", lat: -32.2245, lng: -58.1335, cat: "Deporte", address: "Av. Costanera" },
+  ],
 };
 
-function waitForGoogleMaps() {
-  return new Promise((resolve, reject) => {
-    const start = Date.now();
-    const check = () => {
-      if (window.google?.maps) { resolve(window.google.maps); return; }
-      if (Date.now() - start > 10000) { reject(new Error("Google Maps no cargó")); return; }
-      setTimeout(check, 100);
-    };
-    check();
-  });
-}
+const ALL_PLACES = Object.values(LUGARES_PROPIOS).flat();
 
-export default function MapView({
-  mapFilter,
-  setMapFilter,
-  filteredMarkers,
-  mapCats,
-  go,
-}) {
+export default function MapView({ mapFilter, setMapFilter, filteredMarkers, mapCats, go }) {
   const mapDivRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markersRef = useRef([]);
-  const infoWindowRef = useRef(null);
-  const [mapReady, setMapReady] = useState(false);
-  const [mapError, setMapError] = useState(false);
-  const [loadingPlaces, setLoadingPlaces] = useState(false);
-  const [activePlaces, setActivePlaces] = useState(null);
   const [selectedMarker, setSelectedMarker] = useState(null);
-  const placesServiceRef = useRef(null);
 
-  // Keep a ref so overlays effect can read latest value without it being a dep
-  const filteredMarkersRef = useRef(filteredMarkers);
-  filteredMarkersRef.current = filteredMarkers;
-
-  const clearMarkers = () => {
-    markersRef.current.forEach(m => m.setMap(null));
-    markersRef.current = [];
-  };
-
-  // Initialize map once
+  // Init map once
   useEffect(() => {
-    let cancelled = false;
-    waitForGoogleMaps().then((maps) => {
-      if (cancelled || !mapDivRef.current || mapInstanceRef.current) return;
-
-      mapInstanceRef.current = new maps.Map(mapDivRef.current, {
-        center: COLON_CENTER,
-        zoom: 14,
-        mapTypeId: "roadmap",
-        zoomControl: true,
-        mapTypeControl: false,
-        streetViewControl: false,
-        fullscreenControl: false,
-        gestureHandling: "greedy",
-      });
-      infoWindowRef.current = new maps.InfoWindow();
-      if (maps.places) placesServiceRef.current = new maps.places.PlacesService(mapInstanceRef.current);
-      setMapReady(true);
-    }).catch(() => { if (!cancelled) setMapError(true); });
-    return () => { cancelled = true; };
+    if (mapInstanceRef.current || !mapDivRef.current) return;
+    const map = L.map(mapDivRef.current, {
+      center: COLON_CENTER,
+      zoom: 14,
+      zoomControl: true,
+    });
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      maxZoom: 19,
+    }).addTo(map);
+    mapInstanceRef.current = map;
+    return () => {
+      map.remove();
+      mapInstanceRef.current = null;
+    };
   }, []);
 
-  // Buscar lugares reales en Google Places al cambiar filtro
+  // Redraw markers on filter change
   useEffect(() => {
-    if (!mapReady) { setActivePlaces(null); return; }
-    if (mapFilter === "Todos") { setActivePlaces(null); return; }
-    const service = placesServiceRef.current;
-    const config = PLACES_CONFIG[mapFilter];
-    if (!service || !config) { setActivePlaces(null); return; }
-    setLoadingPlaces(true);
-    service.nearbySearch(
-      { location: COLON_CENTER, ...config },
-      (results, status) => {
-        setLoadingPlaces(false);
-        const OK = window.google?.maps?.places?.PlacesServiceStatus?.OK;
-        if (status === OK && results?.length > 0) {
-          setActivePlaces(results.map(p => ({
-            id: p.place_id, label: p.name, cat: mapFilter,
-            lat: p.geometry.location.lat(), lng: p.geometry.location.lng(),
-            rating: p.rating, address: p.vicinity,
-          })));
-        } else {
-          setActivePlaces(null);
-        }
-      }
-    );
-  }, [mapReady, mapFilter]);
+    const map = mapInstanceRef.current;
+    if (!map) return;
 
-  // Close InfoWindow when filter changes
-  useEffect(() => {
-    if (!mapReady) return;
-    infoWindowRef.current?.close();
-    setSelectedMarker(null);
-  }, [mapReady, mapFilter]);
+    // Clear old markers
+    markersRef.current.forEach(m => m.remove());
+    markersRef.current = [];
 
-  // Redibujar markers: Places API si hay resultados, sino datos internos
-  useEffect(() => {
-    if (!mapReady) return;
-    const maps = window.google.maps;
-    clearMarkers();
+    const places = mapFilter === "Todos" ? ALL_PLACES : (LUGARES_PROPIOS[mapFilter] ?? []);
 
-    const markers = activePlaces ?? filteredMarkersRef.current;
-    markers.forEach(m => {
-      if (!m.lat || !m.lng) return;
-      const color = CAT_COLOR[m.cat] || "#888";
-      const marker = new maps.Marker({
-        position: { lat: m.lat, lng: m.lng },
-        map: mapInstanceRef.current,
-        title: m.label,
-        icon: {
-          path: maps.SymbolPath.CIRCLE,
-          scale: 10,
-          fillColor: color,
-          fillOpacity: 1,
-          strokeColor: "#fff",
-          strokeWeight: 2.5,
-        },
+    places.forEach(place => {
+      const color = CAT_COLOR[place.cat] || "#888";
+      const icon = L.divIcon({
+        className: "",
+        html: `<div style="width:18px;height:18px;border-radius:50%;background:${color};border:2.5px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.3)"></div>`,
+        iconSize: [18, 18],
+        iconAnchor: [9, 9],
       });
-      marker.addListener("click", () => {
-        setSelectedMarker(prev => prev?.id === m.id ? null : m);
-        infoWindowRef.current.setContent(`
-          <div style="font-family:'DM Sans',sans-serif;padding:4px 2px">
-            <div style="font-size:10px;color:${color};font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">${m.cat}</div>
-            <div style="font-size:14px;font-weight:700;color:#1a1a2e">${m.label}</div>
-            ${m.rating ? `<div style="font-size:11px;color:#888;margin-top:3px">⭐ ${m.rating}</div>` : ""}
-            ${m.address ? `<div style="font-size:11px;color:#aaa;margin-top:2px">${m.address}</div>` : ""}
+      const marker = L.marker([place.lat, place.lng], { icon })
+        .addTo(map)
+        .bindPopup(`
+          <div style="font-family:'DM Sans',sans-serif;min-width:140px">
+            <div style="font-size:10px;color:${color};font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">${place.cat}</div>
+            <div style="font-size:14px;font-weight:700;color:#1a1a2e">${place.label}</div>
+            ${place.address ? `<div style="font-size:11px;color:#888;margin-top:3px">📍 ${place.address}</div>` : ""}
           </div>
-        `);
-        infoWindowRef.current.open(mapInstanceRef.current, marker);
-      });
+        `)
+        .on("click", () => setSelectedMarker(place));
       markersRef.current.push(marker);
     });
 
-    mapInstanceRef.current.addListener("click", () => {
-      setSelectedMarker(null);
-      infoWindowRef.current.close();
-    });
-  // filteredMarkers excluded from deps intentionally — read via ref to avoid
-  // closing InfoWindow on every App.jsx re-render (e.g. time tick)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mapReady, activePlaces]);
+    // Fit bounds if filtered
+    if (places.length > 0 && mapFilter !== "Todos") {
+      const bounds = L.latLngBounds(places.map(p => [p.lat, p.lng]));
+      map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
+    } else {
+      map.setView(COLON_CENTER, 14);
+    }
+  }, [mapFilter]);
+
+  const displayPlaces = mapFilter === "Todos" ? ALL_PLACES : (LUGARES_PROPIOS[mapFilter] ?? []);
 
   return (
     <div style={{ minHeight: "100vh", background: "#faf9f6", paddingBottom: 90 }}>
@@ -172,54 +128,45 @@ export default function MapView({
           </div>
         </div>
 
-        {/* Filtro categorías — dentro del header */}
+        {/* Filtros */}
         <div style={{ display: "flex", gap: 7, overflowX: "auto", padding: "0 0 14px", scrollbarWidth: "none" }}>
           {mapCats.map(c => (
-            <button key={c} onClick={() => setMapFilter(c)} style={{ flexShrink: 0, padding: "7px 15px", fontSize: 11, fontWeight: 700, borderRadius: 20, cursor: "pointer", fontFamily: "inherit", background: mapFilter === c ? "rgba(255,255,255,0.97)" : "rgba(255,255,255,0.15)", color: mapFilter === c ? "#2E7D32" : "rgba(255,255,255,0.9)", border: "none", transition: "all 0.2s" }}>{c}</button>
+            <button key={c} onClick={() => { setMapFilter(c); setSelectedMarker(null); }} style={{ flexShrink: 0, padding: "7px 15px", fontSize: 11, fontWeight: 700, borderRadius: 20, cursor: "pointer", fontFamily: "inherit", background: mapFilter === c ? "rgba(255,255,255,0.97)" : "rgba(255,255,255,0.15)", color: mapFilter === c ? "#2E7D32" : "rgba(255,255,255,0.9)", border: "none", transition: "all 0.2s" }}>{c}</button>
           ))}
         </div>
       </div>
 
-      {/* Google Map — más grande */}
-      <div style={{ position: "relative", height: "calc(55svh)", minHeight: 320, boxShadow: "0 4px 20px rgba(0,0,0,0.10)" }}>
-        {!mapReady && !mapError && (
-          <div style={{ position: "absolute", inset: 0, background: "#e8f5e9", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1 }}>
-            <div style={{ color: "#2E7D32", fontFamily: "'DM Sans',sans-serif", fontSize: 13, fontWeight: 600 }}>Cargando mapa...</div>
-          </div>
-        )}
-        {loadingPlaces && (
-          <div style={{ position:"absolute", top:10, left:"50%", transform:"translateX(-50%)", background:"rgba(30,136,229,0.92)", color:"#fff", fontFamily:"'DM Sans',sans-serif", fontSize:11, fontWeight:700, padding:"5px 14px", borderRadius:20, zIndex:2, pointerEvents:"none" }}>
-            Buscando lugares...
-          </div>
-        )}
-        {mapError && (
-          <div style={{ position: "absolute", inset: 0, background: "#fff3e0", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", zIndex: 1, gap: 8 }}>
-            <div style={{ fontSize: 28 }}>⚠️</div>
-            <div style={{ color: "#e65100", fontFamily: "'DM Sans',sans-serif", fontSize: 13, fontWeight: 600, textAlign: "center", padding: "0 20px" }}>No se pudo cargar el mapa.<br/>Verificá la API key de Google Maps.</div>
-          </div>
-        )}
+      {/* Mapa */}
+      <div style={{ height: "calc(55svh)", minHeight: 320, boxShadow: "0 4px 20px rgba(0,0,0,0.10)" }}>
         <div ref={mapDivRef} style={{ width: "100%", height: "100%" }} />
       </div>
 
-      {/* Tarjetas filtradas — solo cuando hay filtro activo */}
+      {/* Tarjetas */}
       {mapFilter !== "Todos" && (
         <div style={{ padding: "14px 16px 0" }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: "#555", marginBottom: 10, textTransform: "uppercase", letterSpacing: 1 }}>
-            {loadingPlaces ? "Buscando en Google Maps..." : `${(activePlaces ?? filteredMarkers).length} resultado${(activePlaces ?? filteredMarkers).length !== 1 ? "s" : ""} · ${mapFilter}`}
+            {displayPlaces.length} resultado{displayPlaces.length !== 1 ? "s" : ""} · {mapFilter}
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {(activePlaces ?? filteredMarkers).map(place => {
+            {displayPlaces.map(place => {
               const color = CAT_COLOR[place.cat] || "#888";
               return (
-                <div key={place.id} style={{ background: "#fff", borderRadius: 16, padding: "14px 16px", boxShadow: "0 2px 8px rgba(0,0,0,0.07)", display: "flex", alignItems: "center", gap: 14 }}>
+                <div key={place.id} onClick={() => {
+                  setSelectedMarker(place);
+                  const m = markersRef.current.find(mk => {
+                    const ll = mk.getLatLng();
+                    return ll.lat === place.lat && ll.lng === place.lng;
+                  });
+                  m?.openPopup();
+                  mapInstanceRef.current?.setView([place.lat, place.lng], 16);
+                }} style={{ background: "#fff", borderRadius: 16, padding: "14px 16px", boxShadow: "0 2px 8px rgba(0,0,0,0.07)", display: "flex", alignItems: "center", gap: 14, cursor: "pointer" }}>
                   <div style={{ width: 44, height: 44, borderRadius: 12, background: color + "22", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                     <div style={{ width: 14, height: 14, borderRadius: "50%", background: color }} />
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: "#1a1a2e", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{place.label || place.nombre}</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "#1a1a2e", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{place.label}</div>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 3 }}>
                       <span style={{ background: color + "22", color, borderRadius: 20, padding: "2px 8px", fontSize: 10, fontWeight: 700 }}>{place.cat}</span>
-                      {place.rating && <span style={{ fontSize: 11, color: "#888" }}>⭐ {place.rating}</span>}
                     </div>
                     {place.address && <div style={{ fontSize: 11, color: "#aaa", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>📍 {place.address}</div>}
                   </div>
@@ -230,7 +177,7 @@ export default function MapView({
         </div>
       )}
 
-      {/* Leyenda — solo en modo Todos */}
+      {/* Leyenda */}
       {mapFilter === "Todos" && (
         <div style={{ margin: "14px 16px 0", background: "#fff", borderRadius: 16, padding: "13px 16px", border: "1px solid #f0ede6", display: "flex", flexWrap: "wrap", gap: 12 }}>
           {Object.entries(CAT_COLOR).map(([c, col]) => (
