@@ -2301,10 +2301,6 @@ export default function Colon360() {
                 <span style={{fontSize:12,fontWeight:700,color:"#fff"}}>Río Uruguay: {rioAltura.loading ? "..." : rioAltura.error ? "—" : rioAltura.altura}</span>
                 {!rioAltura.loading && !rioAltura.error && <span style={{fontSize:10,color:"rgba(255,255,255,0.7)"}}>• {rioAltura.estado}</span>}
               </div>
-              <button onClick={()=>go("ahoramode")} style={{display:"flex",alignItems:"center",gap:6,background:"#F9A825",border:"none",borderRadius:22,padding:"7px 16px",cursor:"pointer",fontFamily:"inherit",flexShrink:0,boxShadow:"0 3px 10px rgba(249,168,37,0.5)"}}>
-                <span style={{fontSize:13}}>⚡</span>
-                <span style={{fontSize:12,fontWeight:800,color:"#fff"}}>¿Qué hago ahora?</span>
-              </button>
             </div>
 
           </div>
@@ -2355,7 +2351,7 @@ export default function Colon360() {
 
             {/* EXPLORAR COLÓN — grilla 2×2 */}
             <div style={{fontSize:13,fontWeight:800,color:"#1a1a2e",letterSpacing:-0.2}}>Explorar Colón</div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,flex:1}}>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
               {[
                 {tab:"alojamientos", icon:"🛏️", label:"Alojamiento",  sub:"Hoteles y cabañas",  color:"#2E7D32"},
                 {tab:"atractivos",   icon:"🌴", label:"Atractivos",   sub:"Lugares para visitar",color:"#795548"},
@@ -2373,6 +2369,16 @@ export default function Colon360() {
                 </button>
               ))}
             </div>
+
+            {/* ¿QUÉ HAGO AHORA? — botón ancho */}
+            <button onClick={()=>go("ahoramode")} style={{width:"100%",background:"linear-gradient(135deg,#F9A825,#FF6F00)",border:"none",borderRadius:16,padding:"14px 16px",cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:14,boxShadow:"0 6px 20px rgba(249,168,37,0.4)",boxSizing:"border-box"}}>
+              <div style={{width:46,height:46,borderRadius:13,background:"rgba(255,255,255,0.2)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,flexShrink:0}}>⚡</div>
+              <div style={{flex:1,textAlign:"left"}}>
+                <div style={{fontSize:15,fontWeight:800,color:"#fff",letterSpacing:-0.3}}>¿Qué hago ahora?</div>
+                <div style={{fontSize:11,color:"rgba(255,255,255,0.82)",marginTop:2}}>Recomendaciones según hora, clima y ubicación</div>
+              </div>
+              <div style={{width:28,height:28,borderRadius:"50%",background:"rgba(255,255,255,0.2)",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:16,flexShrink:0}}>›</div>
+            </button>
           </div>
         </div>
       )}
