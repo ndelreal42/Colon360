@@ -2089,14 +2089,14 @@ export default function Colon360() {
                       const interval=setInterval(()=>{
                         setRuletaDisplay(pool[Math.floor(Math.random()*pool.length)]);
                         count++;
-                        if(count>18){
+                        if(count>22){
                           clearInterval(interval);
                           const elegido=pool[Math.floor(Math.random()*pool.length)];
                           setRuletaDisplay(elegido);
                           setRuletaItem(elegido);
                           setRuletaSpinning(false);
                         }
-                      },120);
+                      },280);
                     }} style={{flexShrink:0,background:"rgba(255,255,255,0.95)",border:"none",borderRadius:20,padding:"5px 11px",display:"flex",alignItems:"center",gap:5,cursor:"pointer",fontFamily:"inherit",boxShadow:"0 2px 8px rgba(0,0,0,0.15)"}}>
                       <span style={{fontSize:14}}>🎰</span>
                       <span style={{fontSize:10,fontWeight:800,color:"#E65100"}}>Ruleta</span>
