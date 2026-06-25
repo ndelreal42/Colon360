@@ -2096,17 +2096,6 @@ export default function Colon360() {
             </button>
             );})()}
 
-            {/* EN LA AGENDA — banner azul (aleatorio) */}
-            <button onClick={()=>{setAtrFilter("Eventos");go("atractivos");}} style={{width:"100%",background:"linear-gradient(135deg,#1565C0,#1E88E5)",border:"none",borderRadius:16,padding:"9px 12px",display:"flex",alignItems:"center",gap:11,cursor:"pointer",fontFamily:"inherit",boxSizing:"border-box",boxShadow:"0 4px 14px rgba(21,101,192,0.30)"}}>
-              <div style={{width:42,height:42,borderRadius:11,background:"rgba(255,255,255,0.18)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>{AGENDA_POOL[agendaIdx].emoji}</div>
-              <div style={{flex:1,textAlign:"left"}}>
-                <div style={{fontSize:8,color:"rgba(255,255,255,0.72)",letterSpacing:2.2,textTransform:"uppercase",fontWeight:700}}>EN LA AGENDA</div>
-                <div style={{fontSize:14,fontWeight:800,color:"#fff",letterSpacing:-0.3,marginTop:1,lineHeight:1.2}}>{AGENDA_POOL[agendaIdx].titulo}</div>
-                <div style={{fontSize:10,color:"rgba(255,255,255,0.78)",marginTop:2}}>{AGENDA_POOL[agendaIdx].sub}</div>
-              </div>
-              <div style={{width:28,height:28,borderRadius:"50%",background:"rgba(255,255,255,0.2)",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:16,flexShrink:0}}>›</div>
-            </button>
-
             {/* EXPLORAR COLÓN — grilla 2×2 */}
             <div style={{fontSize:13,fontWeight:800,color:"#1a1a2e",letterSpacing:-0.2}}>Explorar Colón</div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,flex:1}}>
