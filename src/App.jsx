@@ -1712,6 +1712,10 @@ export default function Colon360() {
   const [alojFilter, setAlojFilter] = useState([]);
   const [playaFilter, setPlayaFilter] = useState("Todas");
   const [gastroFilter, setGastroFilter] = useState("Todo");
+  const [ruletaModal, setRuletaModal] = useState(false);
+  const [ruletaItem, setRuletaItem] = useState(null);
+  const [ruletaSpinning, setRuletaSpinning] = useState(false);
+  const [ruletaDisplay, setRuletaDisplay] = useState(null);
   const [planDias, setPlanDias] = useState(1);
   const [planPerfil, setPlanPerfil] = useState([]);
   const [planTemas, setPlanTemas] = useState([]);
@@ -2072,10 +2076,36 @@ export default function Colon360() {
                   <div style={{fontSize:11,color:"rgba(255,255,255,0.7)",marginTop:2}}>{displayData.length} disponibles</div>
                 </div>
                 {tab==="gastronomia" && (
-                  <button onClick={()=>go("juegos")} style={{flexShrink:0,background:"rgba(255,255,255,0.18)",border:"1px solid rgba(255,255,255,0.3)",borderRadius:20,padding:"5px 11px",display:"flex",alignItems:"center",gap:5,cursor:"pointer",fontFamily:"inherit"}}>
-                    <span style={{fontSize:14}}>🎲</span>
-                    <span style={{fontSize:10,fontWeight:700,color:"#fff"}}>Juegos</span>
-                  </button>
+                  <div style={{display:"flex",gap:6,flexShrink:0}}>
+                    <button onClick={()=>{
+                      const pool = gastroFilter!=="Todo"
+                        ? DATA.restaurantes.filter(i=>(i.tags||[]).some(t=>t.normalize("NFC")===gastroFilter.normalize("NFC")))
+                        : DATA.restaurantes;
+                      if(!pool.length) return;
+                      setRuletaModal(true);
+                      setRuletaItem(null);
+                      setRuletaSpinning(true);
+                      let count=0;
+                      const interval=setInterval(()=>{
+                        setRuletaDisplay(pool[Math.floor(Math.random()*pool.length)]);
+                        count++;
+                        if(count>18){
+                          clearInterval(interval);
+                          const elegido=pool[Math.floor(Math.random()*pool.length)];
+                          setRuletaDisplay(elegido);
+                          setRuletaItem(elegido);
+                          setRuletaSpinning(false);
+                        }
+                      },120);
+                    }} style={{flexShrink:0,background:"rgba(255,255,255,0.95)",border:"none",borderRadius:20,padding:"5px 11px",display:"flex",alignItems:"center",gap:5,cursor:"pointer",fontFamily:"inherit",boxShadow:"0 2px 8px rgba(0,0,0,0.15)"}}>
+                      <span style={{fontSize:14}}>🎰</span>
+                      <span style={{fontSize:10,fontWeight:800,color:"#E65100"}}>Ruleta</span>
+                    </button>
+                    <button onClick={()=>go("juegos")} style={{flexShrink:0,background:"rgba(255,255,255,0.18)",border:"1px solid rgba(255,255,255,0.3)",borderRadius:20,padding:"5px 11px",display:"flex",alignItems:"center",gap:5,cursor:"pointer",fontFamily:"inherit"}}>
+                      <span style={{fontSize:14}}>🎲</span>
+                      <span style={{fontSize:10,fontWeight:700,color:"#fff"}}>Juegos</span>
+                    </button>
+                  </div>
                 )}
               </div>
               {/* Filtros por categoría */}
@@ -2295,6 +2325,81 @@ export default function Colon360() {
       {tab==="relax" && <RelaxPage go={go} relaxPlaying={relaxPlaying} setRelaxPlaying={setRelaxPlaying} relaxAudio={relaxAudio} setRelaxAudio={setRelaxAudio}/>}
 
       {/* ══ NOTIFICACIÓN JUEGOS (stay 20min) ══ */}
+
+      {/* MODAL RULETA GASTRONÓMICA */}
+      {ruletaModal && (
+        <div style={{position:"fixed",inset:0,zIndex:9998,background:"rgba(0,0,0,0.7)",display:"flex",alignItems:"center",justifyContent:"center",padding:"0 20px"}} onClick={()=>{if(!ruletaSpinning){setRuletaModal(false);setRuletaItem(null);}}}>
+          <div style={{background:"#fff",borderRadius:28,width:"100%",maxWidth:380,overflow:"hidden",boxShadow:"0 20px 60px rgba(0,0,0,0.4)"}} onClick={e=>e.stopPropagation()}>
+            {/* Header naranja */}
+            <div style={{background:"linear-gradient(135deg,#F9A825,#E65100)",padding:"24px 20px 20px",textAlign:"center",position:"relative"}}>
+              <div style={{fontSize:48,marginBottom:8}}>{ruletaSpinning?"🎰":ruletaDisplay?.emoji||"🍽️"}</div>
+              <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,fontWeight:700,color:"rgba(255,255,255,0.8)",letterSpacing:2,textTransform:"uppercase",marginBottom:6}}>
+                {ruletaSpinning ? "Eligiendo..." : "¡Tu lugar para comer!"}
+              </div>
+              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:26,fontWeight:700,color:"#fff",lineHeight:1.2,minHeight:36,transition:"all 0.1s"}}>
+                {ruletaDisplay?.nombre || "..."}
+              </div>
+              {!ruletaSpinning && gastroFilter!=="Todo" && (
+                <div style={{marginTop:6,display:"inline-block",background:"rgba(255,255,255,0.2)",borderRadius:20,padding:"3px 12px",fontSize:11,color:"#fff",fontWeight:600}}>Filtro: {gastroFilter}</div>
+              )}
+            </div>
+
+            {/* Info del lugar (solo cuando terminó de girar) */}
+            {!ruletaSpinning && ruletaItem && (
+              <div style={{padding:"18px 20px 20px"}}>
+                <div style={{fontSize:13,color:"#555",lineHeight:1.7,marginBottom:14}}>{ruletaItem.desc}</div>
+                {ruletaItem.info?.length > 0 && (
+                  <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:16}}>
+                    {ruletaItem.info.slice(0,4).map((inf,i)=>(
+                      <div key={i} style={{display:"flex",alignItems:"center",gap:8,fontSize:12,color:"#555"}}>
+                        <div style={{width:6,height:6,borderRadius:"50%",background:"#F9A825",flexShrink:0}}/>
+                        {inf}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div style={{display:"flex",gap:8}}>
+                  <button onClick={()=>{setRuletaModal(false);openDetail(ruletaItem);}} style={{flex:1,background:"linear-gradient(135deg,#F9A825,#E65100)",border:"none",borderRadius:14,padding:"13px",fontSize:13,fontWeight:700,color:"#fff",cursor:"pointer",fontFamily:"inherit"}}>
+                    Ver más info
+                  </button>
+                  <button onClick={()=>{
+                    const pool = gastroFilter!=="Todo"
+                      ? DATA.restaurantes.filter(i=>(i.tags||[]).some(t=>t.normalize("NFC")===gastroFilter.normalize("NFC")))
+                      : DATA.restaurantes;
+                    if(!pool.length) return;
+                    setRuletaItem(null);
+                    setRuletaSpinning(true);
+                    let count=0;
+                    const interval=setInterval(()=>{
+                      setRuletaDisplay(pool[Math.floor(Math.random()*pool.length)]);
+                      count++;
+                      if(count>18){
+                        clearInterval(interval);
+                        const elegido=pool[Math.floor(Math.random()*pool.length)];
+                        setRuletaDisplay(elegido);
+                        setRuletaItem(elegido);
+                        setRuletaSpinning(false);
+                      }
+                    },120);
+                  }} style={{background:"#f5f5f5",border:"none",borderRadius:14,padding:"13px 16px",fontSize:20,cursor:"pointer"}}>
+                    🔄
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {ruletaSpinning && (
+              <div style={{padding:"20px",textAlign:"center",color:"#aaa",fontSize:12}}>Girando la ruleta...</div>
+            )}
+
+            {!ruletaSpinning && (
+              <button onClick={()=>{setRuletaModal(false);setRuletaItem(null);}} style={{width:"100%",background:"none",border:"none",borderTop:"1px solid #f0f0f0",padding:"14px",fontSize:13,color:"#aaa",cursor:"pointer",fontFamily:"inherit"}}>
+                Cerrar
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {juegoNotifVisible && (
         <div style={{position:"fixed",top:16,left:"50%",transform:"translateX(-50%)",width:"calc(100% - 32px)",maxWidth:390,zIndex:9999,background:"linear-gradient(135deg,#6A1B9A,#AB47BC)",borderRadius:18,padding:"16px 18px",boxShadow:"0 8px 32px rgba(106,27,154,0.45)",display:"flex",gap:12,alignItems:"center"}}>
