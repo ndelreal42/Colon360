@@ -399,6 +399,18 @@ const DATA = {
       info:["Vistas al río Uruguay","Piscina exterior","Acceso directo a la costanera","Terraza con vista panorámica"],
       filtros:["hotel","sinEscaleras"],
     },
+    {
+      id:"a8", nombre:"Casa 1", tipo:"Casa · Alquiler temporario",
+      emoji:"🏠", rating:3, color:"#2E7D32",
+      tags:["Casa sola","Mascotas","Pileta","Familiar"],
+      horario:"Check-in: 10hs · Check-out: 17hs",
+      tel:"5491164589871",
+      wa:"https://wa.me/5491164589871?text=Hola%2C%20me%20interesa%20recibir%20informaci%C3%B3n",
+      dir:"Santa Colón 123",
+      desc:"Casa completa en alquiler temporario ideal para familias o grupos de hasta 5 personas. Cuenta con pileta, WiFi y aire acondicionado. Acepta mascotas.",
+      info:["WiFi incluido","Pileta privada","Aire acondicionado","Capacidad: 5 personas"],
+      filtros:["casaSola","mascotas"],
+    },
   ],
   eventos: [
     {
@@ -982,6 +994,7 @@ function DetailPage({ item, onBack }) {
         {item.dir && <InfoRow icon="📍" label="Dirección" value={item.dir} color={color}/>}
         {item.lugar && <InfoRow icon="📍" label="Lugar" value={item.lugar} color={color}/>}
         {item.tel && item.tel !== '—' && <InfoRow icon="📞" label="Contacto" value={item.tel} color={color} onClick={()=>abrirContacto(item.tel)}/>}
+        {item.wa && <InfoRow icon="💬" label="WhatsApp" value="Consultar por WhatsApp" color="#25D366" onClick={()=>window.open(item.wa,'_blank')}/>}
         {item.info && item.info.length > 0 && (
           <>
             <div style={{fontSize:10,color:"#bbb",fontWeight:700,letterSpacing:2,textTransform:"uppercase",margin:"18px 0 10px",fontFamily:"'DM Sans',sans-serif"}}>DETALLES</div>
