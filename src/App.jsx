@@ -1859,6 +1859,8 @@ function PlannerPage({ dias, setDias, perfil, setPerfil, temas, setTemas, result
 // ─── SERVICIOS PAGE ──────────────────────────────────────────────────────────
 function ServiciosPage({ go }) {
   const [selServicio, setSelServicio] = useState(null);
+  const [openGroup, setOpenGroup] = useState(null);
+  const toggleGroup = (key) => setOpenGroup(prev => prev===key ? null : key);
 
   const GRUPOS = [
     { key:"Auto y ruta",    emoji:"🚗", color:"#1565C0", cats:["Mecánica","Combustible","Lavadero"] },
@@ -1956,50 +1958,61 @@ function ServiciosPage({ go }) {
           </div>
         </div>
 
-        {/* Grupos de servicios */}
+        {/* Grupos de servicios — colapsables */}
         {GRUPOS.map(grupo=>{
           const items = noUrgente.filter(s=>grupo.cats.includes(s.cat));
           if(!items.length) return null;
+          const isOpen = openGroup === grupo.key;
           return (
-            <div key={grupo.key} style={{marginBottom:20}}>
-              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
-                <div style={{width:28,height:28,borderRadius:8,background:grupo.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:15}}>{grupo.emoji}</div>
-                <span style={{fontSize:13,fontWeight:800,color:"#1a1a2e",letterSpacing:-0.2}}>{grupo.key}</span>
-                <span style={{fontSize:11,color:"#bbb",marginLeft:2}}>({items.length})</span>
-              </div>
-              <div style={{background:"#fff",borderRadius:16,border:"1px solid #eee",overflow:"hidden",boxShadow:"0 2px 10px rgba(0,0,0,0.04)"}}>
-                {items.map((s,i)=>{
-                  const hasPhone = s.tel && /\(0/.test(s.tel);
-                  const hasCell  = !!s.celular;
-                  const hasLink  = !!s.link;
-                  return (
-                    <div key={i} style={{padding:"12px 14px",display:"flex",alignItems:"center",gap:12,borderBottom:i<items.length-1?"1px solid #f5f5f5":"none"}}>
-                      <div onClick={()=>setSelServicio(s)} style={{width:40,height:40,borderRadius:11,background:s.foto?`url(${s.foto}) center/cover`:`${grupo.color}18`,border:`1.5px solid ${grupo.color}30`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0,cursor:"pointer",overflow:"hidden"}}>
-                        {s.foto ? null : s.emoji}
+            <div key={grupo.key} style={{marginBottom:10}}>
+              {/* Header del grupo — tap para abrir/cerrar */}
+              <button onClick={()=>toggleGroup(grupo.key)} style={{width:"100%",background:"#fff",border:"1px solid #e8e8e8",borderRadius:isOpen?"16px 16px 0 0":16,padding:"14px 16px",display:"flex",alignItems:"center",gap:12,cursor:"pointer",fontFamily:"inherit",boxShadow:"0 2px 8px rgba(0,0,0,0.05)",boxSizing:"border-box"}}>
+                <div style={{width:38,height:38,borderRadius:10,background:`linear-gradient(135deg,${grupo.color},${grupo.color}cc)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>
+                  {grupo.emoji}
+                </div>
+                <div style={{flex:1,textAlign:"left"}}>
+                  <div style={{fontSize:14,fontWeight:700,color:"#1a1a2e"}}>{grupo.key}</div>
+                  <div style={{fontSize:11,color:"#aaa",marginTop:1}}>{items.length} {items.length===1?"servicio":"servicios"}</div>
+                </div>
+                <div style={{fontSize:18,color:grupo.color,fontWeight:700,transition:"transform .2s",transform:isOpen?"rotate(180deg)":"rotate(0deg)"}}>›</div>
+              </button>
+
+              {/* Contenido desplegable */}
+              {isOpen && (
+                <div style={{background:"#fff",borderRadius:"0 0 16px 16px",border:"1px solid #e8e8e8",borderTop:"none",overflow:"hidden",boxShadow:"0 4px 12px rgba(0,0,0,0.06)"}}>
+                  {items.map((s,i)=>{
+                    const hasPhone = s.tel && /\(0/.test(s.tel);
+                    const hasCell  = !!s.celular;
+                    const hasLink  = !!s.link;
+                    return (
+                      <div key={i} style={{padding:"12px 14px",display:"flex",alignItems:"center",gap:12,borderTop:"1px solid #f5f5f5"}}>
+                        <div onClick={()=>setSelServicio(s)} style={{width:40,height:40,borderRadius:11,background:s.foto?`url(${s.foto}) center/cover`:`${grupo.color}18`,border:`1.5px solid ${grupo.color}30`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0,cursor:"pointer",overflow:"hidden"}}>
+                          {s.foto ? null : s.emoji}
+                        </div>
+                        <div style={{flex:1,minWidth:0}} onClick={()=>setSelServicio(s)}>
+                          <div style={{fontSize:13,fontWeight:700,color:"#1a1a2e",lineHeight:1.2,cursor:"pointer"}}>{s.nombre}</div>
+                          <div style={{fontSize:11,color:"#888",marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{s.info}</div>
+                          {s.horario && <div style={{fontSize:10,color:"#bbb",marginTop:1}}>🕐 {s.horario}</div>}
+                        </div>
+                        <div style={{display:"flex",flexDirection:"column",gap:4,flexShrink:0}}>
+                          {hasPhone && (
+                            <button onClick={()=>{const n=s.tel.replace(/[^\d]/g,'');window.open(`tel:+54${n.startsWith('0')?n.slice(1):n}`,'_self');}}
+                              style={{...btnBase,background:"#e8f5e9",color:"#2E7D32",borderColor:"#a5d6a7"}}>📞 Llamar</button>
+                          )}
+                          {hasCell && (
+                            <button onClick={()=>window.open(`https://wa.me/549${s.celular}?text=${WA_MSG}`,'_blank')}
+                              style={{...btnBase,background:"#e8f5e9",color:"#1B5E20",borderColor:"#81c784"}}>💬 WA</button>
+                          )}
+                          {hasLink && (
+                            <button onClick={()=>window.open(s.link,'_blank')}
+                              style={{...btnBase,background:"#e3f2fd",color:"#1565C0",borderColor:"#90caf9"}}>🔗 {s.linkLabel||"Ver"}</button>
+                          )}
+                        </div>
                       </div>
-                      <div style={{flex:1,minWidth:0}} onClick={()=>setSelServicio(s)}>
-                        <div style={{fontSize:13,fontWeight:700,color:"#1a1a2e",lineHeight:1.2,cursor:"pointer"}}>{s.nombre}</div>
-                        <div style={{fontSize:11,color:"#888",marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{s.info}</div>
-                        {s.horario && <div style={{fontSize:10,color:"#bbb",marginTop:1}}>🕐 {s.horario}</div>}
-                      </div>
-                      <div style={{display:"flex",flexDirection:"column",gap:4,flexShrink:0}}>
-                        {hasPhone && (
-                          <button onClick={()=>{const n=s.tel.replace(/[^\d]/g,'');window.open(`tel:+54${n.startsWith('0')?n.slice(1):n}`,'_self');}}
-                            style={{...btnBase,background:"#e8f5e9",color:"#2E7D32",borderColor:"#a5d6a7"}}>📞 Llamar</button>
-                        )}
-                        {hasCell && (
-                          <button onClick={()=>window.open(`https://wa.me/549${s.celular}?text=${WA_MSG}`,'_blank')}
-                            style={{...btnBase,background:"#e8f5e9",color:"#1B5E20",borderColor:"#81c784"}}>💬 WA</button>
-                        )}
-                        {hasLink && (
-                          <button onClick={()=>window.open(s.link,'_blank')}
-                            style={{...btnBase,background:"#e3f2fd",color:"#1565C0",borderColor:"#90caf9"}}>🔗 {s.linkLabel||"Ver"}</button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           );
         })}
@@ -2401,7 +2414,7 @@ export default function Colon360() {
               {[
                 {tab:"alojamientos", icon:"🛏️", label:"Alojamiento",  sub:"Hoteles y cabañas",  color:"#2E7D32"},
                 {tab:"atractivos",   icon:"🌴", label:"Atractivos",   sub:"Lugares para visitar",color:"#795548"},
-                {tab:"servicios",    icon:"🚑", label:"Servicios",    sub:"Salud, info y más",   color:"#e53935"},
+                {tab:"servicios",    icon:"🗂️", label:"Servicios",    sub:"Salud, info y más",   color:"#0097A7"},
                 {tab:"planner",      icon:"🗓️", label:"Planner",      sub:"Armá tu itinerario",  color:"#1565C0"},
               ].map(item=>(
                 <button key={item.tab} onClick={()=>go(item.tab)} style={{background:"#fff",border:"1px solid #e8e8e8",borderRadius:14,padding:"12px 10px",cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:10,boxShadow:"0 1px 6px rgba(0,0,0,0.05)",minWidth:0,width:"100%"}}>
