@@ -2085,7 +2085,7 @@ export default function Colon360() {
 
             {/* PRÓXIMO EVENTO — banner naranja */}
             {(()=>{const ev=getProximoEvento(); const hoy=new Date(); hoy.setHours(0,0,0,0); const enCurso=ev&&FECHAS_EVENTOS[ev.id]&&FECHAS_EVENTOS[ev.id]<=hoy&&FECHAS_FIN[ev.id]&&FECHAS_FIN[ev.id]>=hoy; return (
-            <button onClick={()=>go(RUTAS_EVENTOS[ev?.id]||"eventos")} style={{width:"100%",background:"linear-gradient(135deg,#E65100,#F9A825)",border:"none",borderRadius:16,padding:"9px 12px",display:"flex",alignItems:"center",gap:11,cursor:"pointer",fontFamily:"inherit",boxSizing:"border-box",boxShadow:"0 4px 14px rgba(230,81,0,0.28)"}}>
+            <button onClick={()=>{setAtrFilter("Eventos");go("atractivos");}} style={{width:"100%",background:"linear-gradient(135deg,#E65100,#F9A825)",border:"none",borderRadius:16,padding:"9px 12px",display:"flex",alignItems:"center",gap:11,cursor:"pointer",fontFamily:"inherit",boxSizing:"border-box",boxShadow:"0 4px 14px rgba(230,81,0,0.28)"}}>
               <div style={{width:42,height:42,borderRadius:11,background:"rgba(255,255,255,0.18)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>{ev?.emoji||"🎪"}</div>
               <div style={{flex:1,textAlign:"left"}}>
                 <div style={{fontSize:8,color:"rgba(255,255,255,0.72)",letterSpacing:2.2,textTransform:"uppercase",fontWeight:700}}>{enCurso?"🔴 EN CURSO":"PRÓXIMO EVENTO"}</div>
@@ -2097,7 +2097,7 @@ export default function Colon360() {
             );})()}
 
             {/* EN LA AGENDA — banner azul (aleatorio) */}
-            <button onClick={()=>go("eventos")} style={{width:"100%",background:"linear-gradient(135deg,#1565C0,#1E88E5)",border:"none",borderRadius:16,padding:"9px 12px",display:"flex",alignItems:"center",gap:11,cursor:"pointer",fontFamily:"inherit",boxSizing:"border-box",boxShadow:"0 4px 14px rgba(21,101,192,0.30)"}}>
+            <button onClick={()=>{setAtrFilter("Eventos");go("atractivos");}} style={{width:"100%",background:"linear-gradient(135deg,#1565C0,#1E88E5)",border:"none",borderRadius:16,padding:"9px 12px",display:"flex",alignItems:"center",gap:11,cursor:"pointer",fontFamily:"inherit",boxSizing:"border-box",boxShadow:"0 4px 14px rgba(21,101,192,0.30)"}}>
               <div style={{width:42,height:42,borderRadius:11,background:"rgba(255,255,255,0.18)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>{AGENDA_POOL[agendaIdx].emoji}</div>
               <div style={{flex:1,textAlign:"left"}}>
                 <div style={{fontSize:8,color:"rgba(255,255,255,0.72)",letterSpacing:2.2,textTransform:"uppercase",fontWeight:700}}>EN LA AGENDA</div>
@@ -2138,11 +2138,12 @@ export default function Colon360() {
           gastronomia:  {title:"Gastronomía",  sub:"Los mejores sabores de Colón",           data:DATA.restaurantes, grad:"linear-gradient(135deg,#F9A825,#f4b90a)"},
           alojamientos: {title:"Alojamientos", sub:"Descansá como te merecés",               data:DATA.alojamientos, grad:"linear-gradient(135deg,#2E7D32,#43A047)"},
           eventos:      {title:"Agenda 2026",  sub:"Eventos, ferias y actividades",          data:DATA.eventos,      grad:"linear-gradient(135deg,#00695C,#00897B)"},
-          atractivos:   {title:"Atractivos",   sub:"Todo lo que Colón tiene para ofrecerte", data:ATRACTIVOS,        grad:"linear-gradient(135deg,#795548,#F9A825)"},
+          atractivos:   {title: atrFilter==="Eventos" ? "Agenda 2026" : "Explorar Colón", sub: atrFilter==="Eventos" ? "Eventos, ferias y actividades" : "Todo lo que Colón tiene para ofrecerte", data:ATRACTIVOS, grad:"linear-gradient(135deg,#795548,#F9A825)"},
         };
         const {title,sub,data,grad} = configs[tab];
 
         const baseData =
+          tab==="atractivos" && atrFilter==="Eventos"  ? DATA.eventos :
           tab==="atractivos" && atrFilter!=="Todos"    ? data.filter(i=>i.cat===atrFilter) :
           tab==="alojamientos" && alojFilter.length>0 ? data.filter(i=>alojFilter.every(f=>i.filtros?.includes(f))) :
           tab==="playas" && playaFilter!=="Todas"      ? data.filter(i=>(i.tags||[]).includes(playaFilter)) :
@@ -2203,7 +2204,7 @@ export default function Colon360() {
               {/* Filtros por categoría */}
               {tab==="atractivos" && (
                 <div style={{display:"flex",gap:7,paddingBottom:10,overflowX:"auto",scrollbarWidth:"none"}}>
-                  {["Todos","Natural","Cultural","Deporte"].map(c=>(
+                  {["Todos","Natural","Cultural","Deporte","Eventos"].map(c=>(
                     <button key={c} onClick={()=>setAtrFilter(c)} style={{flexShrink:0,padding:"6px 14px",fontSize:11,fontWeight:700,borderRadius:20,cursor:"pointer",fontFamily:"inherit",background:atrFilter===c?"rgba(255,255,255,0.97)":"rgba(255,255,255,0.15)",color:atrFilter===c?"#795548":"rgba(255,255,255,0.9)",border:"none",transition:"all .2s"}}>{c}</button>
                   ))}
                 </div>
@@ -3145,7 +3146,7 @@ function BottomNav({tab, go}) {
         {id:"inicio",emoji:"🏠",label:"Inicio"},
         {id:"playas",emoji:"🏖️",label:"Playas"},
         {id:"gastronomia",emoji:"🍽️",label:"Comer"},
-        {id:"eventos",emoji:"🎭",label:"Agenda",color:"#00897B"},
+        {id:"atractivos",emoji:"🗺️",label:"Explorar",color:"#795548"},
         {id:"mapa",emoji:"📍",label:"Mapa"},
       ].map(item=>(
         <button key={item.id} onClick={()=>go(item.id)} style={{flex:1,background:tab===item.id?`${(item.color||"#1E88E5")}12`:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"6px 4px",borderRadius:14,fontFamily:"inherit",position:"relative"}}>
