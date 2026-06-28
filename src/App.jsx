@@ -1125,6 +1125,137 @@ const MAP_MARKERS = [
 
 const CAT_COLOR = { Playa:"#1E88E5", Hotel:"#2E7D32", "Rest.":"#F9A825", Café:"#795548", Atracción:"#1565C0", Salud:"#e53935", Deporte:"#2E7D32" };
 
+// ─── HORARIO UTILS ───────────────────────────────────────────────────────────
+function parseHora(str) {
+  // "08:30" or "8" or "08" → minutes since midnight
+  const s = str.trim().replace("hs","").trim();
+  if(s.includes(":")) {
+    const [h,m] = s.split(":").map(Number);
+    return h*60 + (m||0);
+  }
+  return Number(s)*60;
+}
+
+function isAbierto(horario) {
+  if(!horario) return null;
+  const h = horario.toLowerCase();
+  if(h.includes("24hs") || h.includes("24 hs") || h.includes("todo el día") || h.includes("abierta todo")) return {abierto:true, label:"Abierto 24hs"};
+  if(h.includes("cerrado") && !h.includes("–") && !h.includes("y") && !h.includes(":")) return {abierto:false, label:"Cerrado"};
+  if(h.includes("consultar") || h.includes("reserva") || h.includes("temporada") || h.includes("check-in") || h.includes("mañana") || h.includes("tardes") || h.includes("—")) return null;
+
+  const now = new Date();
+  const dow = now.getDay(); // 0=Dom,1=Lun,...,6=Sáb
+  const mins = now.getHours()*60 + now.getMinutes();
+
+  // Detectar si hoy está cerrado por día explícito
+  const DIAS = {lun:1,mar:2,mié:3,mie:3,jue:4,vie:5,sáb:6,sab:6,dom:0};
+  const NOMBRES_DIA = ["dom","lun","mar","mié","jue","vie","sáb"];
+  const diaHoy = NOMBRES_DIA[dow];
+
+  // "Cerrado martes" / "Cerrado miércoles"
+  const cerrHoy = h.match(/cerrado\s+(lun|mar|mi[eé]|jue|vie|s[aá]b|dom)/g);
+  if(cerrHoy) {
+    for(const c of cerrHoy) {
+      const d = c.replace("cerrado","").trim().slice(0,3);
+      if(DIAS[d]===dow) return {abierto:false, label:"Cerrado hoy"};
+    }
+  }
+
+  // Extraer franjas horarias del texto: pares HH:MM – HH:MM o HH–HH
+  function extraerFranjas(texto) {
+    const franjas = [];
+    // Formato "HH:MM – HH:MM" o "HH:MM–HH:MM" o "HHhs–HHhs"
+    const re = /(\d{1,2}(?::\d{2})?)\s*(?:–|-|a)\s*(\d{1,2}(?::\d{2})?)\s*(?:hs)?/g;
+    let m;
+    while((m=re.exec(texto))!==null) {
+      const ini = parseHora(m[1]);
+      let fin = parseHora(m[2]);
+      if(fin < ini) fin += 24*60; // cruza medianoche
+      franjas.push({ini,fin});
+    }
+    return franjas;
+  }
+
+  function estaEnFranjas(franjas) {
+    for(const f of franjas) {
+      const minsAdj = f.fin>24*60 && mins<f.ini ? mins+24*60 : mins;
+      if(minsAdj>=f.ini && minsAdj<f.fin) return true;
+    }
+    return false;
+  }
+
+  // Caso simple: "HH:MM – HH:MM y HH:MM – HH:MM · Todos los días / sin día específico"
+  // Si no tiene referencia a días de la semana, aplicar directo
+  const tieneDias = /lun|mar|mi[eé]|jue|vie|s[aá]b|dom|l-v/.test(h);
+  if(!tieneDias) {
+    const franjas = extraerFranjas(horario);
+    if(!franjas.length) return null;
+    const ab = estaEnFranjas(franjas);
+    return {abierto:ab, label: ab ? "Abierto ahora" : "Cerrado ahora"};
+  }
+
+  // Con días: "Lun–Sáb 9–13hs y 16–20hs · Dom cerrado"
+  // Dividir por segmentos "· " o ";" y analizar cuál aplica hoy
+  const segmentos = horario.split(/[·;]/).map(s=>s.trim()).filter(Boolean);
+  for(const seg of segmentos) {
+    const sl = seg.toLowerCase();
+    // detectar rango de días "lun–vie" / "lun a vie" / "L-V"
+    const rangoRe = /(lun|mar|mi[eé]|jue|vie|s[aá]b|dom|l|v|s)\s*(?:–|-|a)\s*(lun|mar|mi[eé]|jue|vie|s[aá]b|dom|v|s)/;
+    const diasPuntRe = /^((?:lun|mar|mi[eé]|jue|vie|s[aá]b|dom)(?:\s*,\s*(?:lun|mar|mi[eé]|jue|vie|s[aá]b|dom))*)/;
+    const LV = {l:1,lun:1,mar:2,"mié":3,"mie":3,jue:4,vie:5,v:5,"sáb":6,"sab":6,s:6,dom:0};
+
+    let aplica = false;
+    const rm = sl.match(rangoRe);
+    if(rm) {
+      const d1 = LV[rm[1]]??-1;
+      let d2 = LV[rm[2]]??-1;
+      if(d1>=0 && d2>=0) {
+        if(d2<d1) { // wrap: Vie–Lun
+          aplica = dow>=d1 || dow<=d2;
+        } else {
+          aplica = dow>=d1 && dow<=d2;
+        }
+      }
+    } else {
+      // días sueltos: "Lun, Mié–Dom"
+      const dp = sl.match(diasPuntRe);
+      if(dp) {
+        const partes = dp[1].split(/,/).map(p=>p.trim());
+        for(const p of partes) {
+          const key = p.slice(0,3);
+          if(LV[key]===dow) { aplica=true; break; }
+        }
+      } else if(sl.includes("todos") || sl.includes("diario")) {
+        aplica = true;
+      }
+    }
+
+    if(sl.includes("cerrado")) {
+      if(aplica) return {abierto:false, label:"Cerrado hoy"};
+      continue;
+    }
+
+    if(aplica) {
+      const franjas = extraerFranjas(seg);
+      if(!franjas.length) return null;
+      const ab = estaEnFranjas(franjas);
+      return {abierto:ab, label: ab ? "Abierto ahora" : "Cerrado ahora"};
+    }
+  }
+
+  // Viernes, Sábados y Domingos …
+  if(h.includes("viernes") && h.includes("sábados") && h.includes("domingos")) {
+    if(dow===5||dow===6||dow===0) {
+      const franjas = extraerFranjas(horario);
+      const ab = franjas.length ? estaEnFranjas(franjas) : false;
+      return {abierto:ab, label: ab ? "Abierto ahora" : "Cerrado ahora"};
+    }
+    return {abierto:false, label:"Cerrado hoy"};
+  }
+
+  return null;
+}
+
 // ─── GEO UTILITIES ───────────────────────────────────────────────────────────
 function calcKm(lat1, lng1, lat2, lng2) {
   const R = 6371;
@@ -1990,7 +2121,10 @@ function ServiciosPage({ go }) {
                           {s.foto ? null : s.emoji}
                         </div>
                         <div style={{flex:1,minWidth:0}} onClick={()=>setSelServicio(s)}>
-                          <div style={{fontSize:13,fontWeight:700,color:"#1a1a2e",lineHeight:1.2,cursor:"pointer"}}>{s.nombre}</div>
+                          <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                            <div style={{fontSize:13,fontWeight:700,color:"#1a1a2e",lineHeight:1.2,cursor:"pointer"}}>{s.nombre}</div>
+                            {(()=>{const es=isAbierto(s.horario);return es?(<span style={{fontSize:9,fontWeight:800,padding:"2px 7px",borderRadius:10,background:es.abierto?"#e8f5e9":"#ffebee",color:es.abierto?"#2E7D32":"#c62828",whiteSpace:"nowrap"}}>{es.abierto?"● Abierto":"● Cerrado"}</span>):null;})()}
+                          </div>
                           <div style={{fontSize:11,color:"#888",marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{s.info}</div>
                           {s.horario && <div style={{fontSize:10,color:"#bbb",marginTop:1}}>🕐 {s.horario}</div>}
                         </div>
@@ -2577,12 +2711,18 @@ export default function Colon360() {
                 const coords = LUGAR_COORDS[item.nombre||item.titulo] || (item.lugar ? LUGAR_COORDS[item.lugar] : null);
                 const distKm = coords && userPos ? calcKm(userPos.lat, userPos.lng, coords.lat, coords.lng) : null;
                 const distLabel = distKm !== null ? (distKm < 1 ? `${Math.round(distKm*1000)} m` : `${distKm.toFixed(1)} km`) : null;
+                const estadoHorario = isAbierto(item.horario);
                 return (
                   <div key={item.id} className="fu" onClick={()=>openDetail(item)}
                     style={{background:"#fff",borderRadius:22,marginBottom:12,boxShadow:"0 4px 20px rgba(0,0,0,0.09)",overflow:"hidden",cursor:"pointer",animationDelay:`${idx*50}ms`,display:"flex",alignItems:"stretch"}}>
                     {/* Visual block */}
-                    <div style={{width:82,background:`linear-gradient(145deg,${color}ee,${color}88)`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:32}}>
+                    <div style={{width:82,background:`linear-gradient(145deg,${color}ee,${color}88)`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:32,position:"relative"}}>
                       {item.emoji}
+                      {estadoHorario && (
+                        <div style={{position:"absolute",bottom:6,left:"50%",transform:"translateX(-50%)",background:estadoHorario.abierto?"#2E7D32":"#c62828",borderRadius:10,padding:"2px 6px",fontSize:8,fontWeight:800,color:"#fff",whiteSpace:"nowrap",letterSpacing:0.3}}>
+                          {estadoHorario.abierto ? "● Abierto" : "● Cerrado"}
+                        </div>
+                      )}
                     </div>
                     {/* Contenido */}
                     <div style={{flex:1,minWidth:0,padding:"13px 12px 12px 14px"}}>
@@ -2598,9 +2738,14 @@ export default function Colon360() {
                           )}
                         </div>
                       </div>
-                      {item.tipo && <div style={{fontSize:9,color,fontWeight:700,letterSpacing:1.2,textTransform:"uppercase",marginBottom:6}}>{item.tipo}</div>}
-                      {item.mes && !item.tipo && <div style={{fontSize:9,color,fontWeight:700,letterSpacing:1,textTransform:"uppercase",marginBottom:6}}>{item.dia} {item.mes}</div>}
-                      <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:6}}>
+                      {item.tipo && <div style={{fontSize:9,color,fontWeight:700,letterSpacing:1.2,textTransform:"uppercase",marginBottom:4}}>{item.tipo}</div>}
+                      {item.mes && !item.tipo && <div style={{fontSize:9,color,fontWeight:700,letterSpacing:1,textTransform:"uppercase",marginBottom:4}}>{item.dia} {item.mes}</div>}
+                      {item.horario && item.horario!=="—" && (
+                        <div style={{fontSize:10,color:"#aaa",marginBottom:5,display:"flex",alignItems:"center",gap:4}}>
+                          🕐 {item.horario}
+                        </div>
+                      )}
+                      <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:5}}>
                         {(item.tags||[]).slice(0,3).map(t=>(
                           <span key={t} style={{fontSize:9,fontWeight:600,padding:"2px 8px",borderRadius:20,background:`${color}18`,color}}>{t}</span>
                         ))}
