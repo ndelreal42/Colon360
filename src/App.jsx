@@ -2243,6 +2243,9 @@ const AGENDA_POOL = [
 
 // ─── MAIN ─────────────────────────────────────────────────────────────────────
 export default function Colon360() {
+  const { data: playasAPI } = useLugares("playa");
+  const { data: restaurantesAPI } = useLugares("restaurante");
+  const { data: alojamientosAPI } = useLugares("hotel");
   const { data: lugaresAPI } = useLugares();
   const [tab, setTab] = useState(() => {
     const p = new URLSearchParams(window.location.search).get('tab');
@@ -2581,9 +2584,9 @@ export default function Colon360() {
       {/* ══ LIST PAGES ══ */}
       {["playas","gastronomia","alojamientos","eventos","atractivos"].includes(tab) && (()=>{
         const configs = {
-          playas:       {title:"Playas",       sub:"Arena, río y atardeceres únicos",        data:DATA.playas,       grad:"linear-gradient(135deg,#1E88E5,#42A5F5)"},
-          gastronomia:  {title:"Gastronomía",  sub:"Los mejores sabores de Colón",           data:DATA.restaurantes, grad:"linear-gradient(135deg,#F9A825,#f4b90a)"},
-          alojamientos: {title:"Alojamientos", sub:"Descansá como te merecés",               data:DATA.alojamientos, grad:"linear-gradient(135deg,#2E7D32,#43A047)"},
+          playas:       {title:"Playas",       sub:"Arena, río y atardeceres únicos",        data:playasAPI,       grad:"linear-gradient(135deg,#1E88E5,#42A5F5)"},
+          gastronomia:  {title:"Gastronomía",  sub:"Los mejores sabores de Colón",           data:restaurantesAPI, grad:"linear-gradient(135deg,#F9A825,#f4b90a)"},
+          alojamientos: {title:"Alojamientos", sub:"Descansá como te merecés",               data:alojamientosAPI, grad:"linear-gradient(135deg,#2E7D32,#43A047)"},
           eventos:      {title:"Agenda 2026",  sub:"Eventos, ferias y actividades",          data:DATA.eventos,      grad:"linear-gradient(135deg,#00695C,#00897B)"},
           atractivos:   {title: atrFilter==="Eventos" ? "Agenda 2026" : "Explorar Colón", sub: atrFilter==="Eventos" ? "Eventos, ferias y actividades" : "Todo lo que Colón tiene para ofrecerte", data:lugaresAPI, grad:"linear-gradient(135deg,#795548,#F9A825)"},
         };
