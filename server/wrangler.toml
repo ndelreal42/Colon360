@@ -1,0 +1,12 @@
+name = "colon360-api"
+main = "worker.js"
+compatibility_date = "2026-09-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "colon360"
+database_id = "7ba123fb-3781-4b54-bdc2-1c29067b49d2"
+
+[[r2_buckets]]
+binding = "FOTOS"
+bucket_name = "colon360-fotos"
