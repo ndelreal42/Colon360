@@ -3,7 +3,7 @@
   "name": "Colón 360",
   "short_name": "Colón 360",
   "description": "Tu guía de viaje para Colón, Entre Ríos. Playas, gastronomía, atractivos, eventos y servicios útiles para tu visita.",
-  "start_url": "/",
+  "start_url": "/Colon360/",
   "display": "standalone",
   "orientation": "portrait",
   "theme_color": "#1a3a2a",

@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Colón 360 — Admin</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+  :root{
+    --rio:#0F3D3E; --rio-deep:#0A2C2D; --arena:#F3EBDA; --card:#FFFDF8;
+    --ambar:#E0A458; --ladrillo:#A63D40; --verde:#4F8A62; --linea:#D9CDB0; --tinta:#1C2321;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--arena);color:var(--tinta);font-family:'Space Grotesk',sans-serif;min-height:100vh;}
+  header{background:linear-gradient(160deg,var(--rio),var(--rio-deep));color:var(--arena);padding:20px 24px;display:flex;justify-content:space-between;align-items:center;}
+  header h1{font-family:'Fraunces',serif;font-size:20px;margin:0;}
+  header button{background:none;border:1px solid rgba(243,235,218,0.3);color:var(--arena);padding:6px 14px;border-radius:8px;font-family:inherit;font-size:12px;cursor:pointer;}
+
+  #login{max-width:340px;margin:80px auto;background:var(--card);border:1px solid var(--linea);border-radius:14px;padding:28px;}
+  #login h2{font-family:'Fraunces',serif;font-size:20px;margin:0 0 6px;}
+  #login p{font-size:13px;color:#6b6355;margin:0 0 18px;}
+  #login input{width:100%;padding:10px 12px;border:1px solid var(--linea);border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:13px;margin-bottom:10px;}
+  #login button{width:100%;background:var(--rio);color:var(--arena);border:none;padding:11px;border-radius:8px;font-family:inherit;font-weight:600;font-size:14px;cursor:pointer;}
+  #login-error{color:var(--ladrillo);font-size:12px;margin-top:8px;display:none;}
+
+  main{max-width:900px;margin:0 auto;padding:24px;}
+  .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px;}
+  .tabs button{background:var(--card);border:1px solid var(--linea);padding:7px 14px;border-radius:20px;font-family:inherit;font-size:12.5px;cursor:pointer;}
+  .tabs button.active{background:var(--rio);color:var(--arena);border-color:var(--rio);}
+
+  #new-btn{background:var(--verde);color:#fff;border:none;padding:9px 16px;border-radius:8px;font-family:inherit;font-size:13px;cursor:pointer;margin-bottom:14px;}
+
+  table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--linea);border-radius:10px;overflow:hidden;font-size:13px;}
+  th{background:#EFE6D2;text-align:left;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#6b6355;}
+  td{padding:10px 12px;border-top:1px solid var(--linea);}
+  td.acciones{white-space:nowrap;}
+  td.acciones button{border:none;background:none;cursor:pointer;font-size:13px;padding:4px 6px;}
+
+  #overlay{display:none;position:fixed;inset:0;background:rgba(10,44,45,0.55);align-items:center;justify-content:center;padding:20px;}
+  #form-card{background:var(--card);border-radius:14px;padding:24px;max-width:480px;width:100%;max-height:85vh;overflow-y:auto;}
+  #form-card h3{font-family:'Fraunces',serif;margin:0 0 14px;}
+  #form-card label{display:block;font-size:11px;text-transform:uppercase;color:#8a8272;margin:10px 0 4px;}
+  #form-card input, #form-card textarea{width:100%;padding:8px 10px;border:1px solid var(--linea);border-radius:6px;font-family:inherit;font-size:13px;}
+  #form-card textarea{min-height:60px;resize:vertical;}
+  .form-actions{display:flex;gap:10px;margin-top:18px;}
+  .form-actions button{flex:1;padding:10px;border-radius:8px;border:none;font-family:inherit;font-weight:600;cursor:pointer;}
+  #save-btn{background:var(--rio);color:var(--arena);}
+  #cancel-btn{background:#EFE6D2;color:var(--tinta);}
+
+  #status{font-size:12.5px;color:#6b6355;margin-top:10px;}
+  #loading{padding:40px;text-align:center;color:#8a8272;font-size:13px;}
+</style>
+</head>
+<body>
+
+<div id="login">
+  <h2>Colón 360 — Admin</h2>
+  <p>Ingresá la clave para editar el contenido de la app.</p>
+  <input type="password" id="admin-key-input" placeholder="Clave de administrador">
+  <button onclick="login()">Entrar</button>
+  <div id="login-error">Clave incorrecta o sin conexión.</div>
+</div>
+
+<div id="app" style="display:none;">
+  <header>
+    <h1>Colón 360 — Panel Admin</h1>
+    <button onclick="logout()">Salir</button>
+  </header>
+  <main>
+    <div class="tabs" id="tabs"></div>
+    <button id="new-btn" onclick="openForm()">+ Agregar nuevo</button>
+    <div id="tabla-wrap"><div id="loading">Cargando...</div></div>
+    <div id="status"></div>
+  </main>
+</div>
+
+<div id="overlay">
+  <div id="form-card">
+    <h3 id="form-title">Nuevo</h3>
+    <div id="form-fields"></div>
+    <div class="form-actions">
+      <button id="cancel-btn" onclick="closeForm()">Cancelar</button>
+      <button id="save-btn" onclick="saveRow()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API_URL = "https://colon360-api.colon360.workers.dev";
+
+// Definición de cada tabla: columnas visibles en la lista, y campos del formulario
+const TABLAS = {
+  lugares: {
+    label: "Comercios / Lugares",
+    columnas: ["id","nombre","tipo","rating"],
+    campos: [
+      {name:"id", label:"ID (único, sin espacios)"},
+      {name:"nombre", label:"Nombre"},
+      {name:"tipo", label:"Tipo (playa, restaurante, hotel, etc.)"},
+      {name:"categoria", label:"Categoría"},
+      {name:"emoji", label:"Emoji"},
+      {name:"rating", label:"Rating (ej: 4.8)"},
+      {name:"color", label:"Color (código hex, ej: #2E7D32)"},
+      {name:"tags", label:"Tags (separados por coma)"},
+      {name:"horario", label:"Horario"},
+      {name:"tel", label:"Teléfono"},
+      {name:"dir", label:"Dirección"},
+      {name:"desc", label:"Descripción", tipo:"textarea"},
+      {name:"info", label:"Info extra (separados por coma)"},
+    ],
+    json: ["tags","info"],
+  },
+  eventos: {
+    label: "Eventos",
+    columnas: ["id","titulo","dia","mes"],
+    campos: [
+      {name:"id", label:"ID (único, sin espacios)"},
+      {name:"titulo", label:"Título"},
+      {name:"dia", label:"Día"},
+      {name:"mes", label:"Mes"},
+      {name:"emoji", label:"Emoji"},
+      {name:"color", label:"Color (código hex)"},
+      {name:"lugar", label:"Lugar"},
+      {name:"horario", label:"Horario"},
+      {name:"tel", label:"Teléfono / contacto"},
+      {name:"desc", label:"Descripción", tipo:"textarea"},
+      {name:"info", label:"Info extra (separados por coma)"},
+      {name:"tags", label:"Tags (separados por coma)"},
+    ],
+    json: ["tags","info"],
+  },
+  servicios: {
+    label: "Servicios",
+    columnas: ["id","nombre","cat"],
+    campos: [
+      {name:"nombre", label:"Nombre"},
+      {name:"cat", label:"Categoría"},
+      {name:"emoji", label:"Emoji"},
+      {name:"info", label:"Info"},
+      {name:"horario", label:"Horario"},
+      {name:"tel", label:"Teléfono"},
+      {name:"color", label:"Color (código hex)"},
+      {name:"urgente", label:"Urgente (1 = sí, 0 = no)"},
+    ],
+    json: [],
+  },
+};
+
+let claveAdmin = localStorage.getItem("colon360_admin_key") || "";
+let tablaActual = "lugares";
+let editandoId = null;
+
+function login() {
+  claveAdmin = document.getElementById("admin-key-input").value.trim();
+  probarClave();
+}
+
+async function probarClave() {
+  try {
+    const res = await fetch(`${API_URL}/api/lugares`, {
+      method: "POST",
+      headers: { "X-Admin-Key": claveAdmin, "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    // 500 = paso el auth pero fallo el insert (esperado, mandamos body vacío) => clave OK
+    // 401 = clave incorrecta
+    if (res.status === 401) {
+      document.getElementById("login-error").style.display = "block";
+      return;
+    }
+    localStorage.setItem("colon360_admin_key", claveAdmin);
+    document.getElementById("login").style.display = "none";
+    document.getElementById("app").style.display = "block";
+    renderTabs();
+    cargarTabla();
+  } catch (e) {
+    document.getElementById("login-error").style.display = "block";
+  }
+}
+
+function logout() {
+  localStorage.removeItem("colon360_admin_key");
+  location.reload();
+}
+
+function renderTabs() {
+  const tabsEl = document.getElementById("tabs");
+  tabsEl.innerHTML = "";
+  Object.keys(TABLAS).forEach((key) => {
+    const btn = document.createElement("button");
+    btn.textContent = TABLAS[key].label;
+    btn.className = key === tablaActual ? "active" : "";
+    btn.onclick = () => { tablaActual = key; renderTabs(); cargarTabla(); };
+    tabsEl.appendChild(btn);
+  });
+}
+
+async function cargarTabla() {
+  const wrap = document.getElementById("tabla-wrap");
+  wrap.innerHTML = `<div id="loading">Cargando...</div>`;
+  try {
+    const res = await fetch(`${API_URL}/api/${tablaActual}`);
+    const data = await res.json();
+    const cfg = TABLAS[tablaActual];
+
+    let html = `<table><thead><tr>`;
+    cfg.columnas.forEach((c) => html += `<th>${c}</th>`);
+    html += `<th>Acciones</th></tr></thead><tbody>`;
+
+    data.forEach((row) => {
+      html += `<tr>`;
+      cfg.columnas.forEach((c) => html += `<td>${row[c] ?? ""}</td>`);
+      html += `<td class="acciones">
+        <button onclick='editar(${JSON.stringify(row)})'>✏️</button>
+        <button onclick="borrar('${row.id}')">🗑️</button>
+      </td></tr>`;
+    });
+    html += `</tbody></table>`;
+    wrap.innerHTML = data.length ? html : `<div id="loading">No hay datos todavía.</div>`;
+  } catch (e) {
+    wrap.innerHTML = `<div id="loading">Error al cargar: ${e.message}</div>`;
+  }
+}
+
+function openForm(row = null) {
+  editandoId = row ? row.id : null;
+  const cfg = TABLAS[tablaActual];
+  document.getElementById("form-title").textContent = row ? "Editar" : "Nuevo";
+  const fieldsEl = document.getElementById("form-fields");
+  fieldsEl.innerHTML = "";
+
+  cfg.campos.forEach((campo) => {
+    const label = document.createElement("label");
+    label.textContent = campo.label;
+    fieldsEl.appendChild(label);
+
+    const isJson = cfg.json.includes(campo.name);
+    let value = row ? row[campo.name] : "";
+    if (isJson && Array.isArray(value)) value = value.join(", ");
+
+    const input = document.createElement(campo.tipo === "textarea" ? "textarea" : "input");
+    input.id = `f-${campo.name}`;
+    input.value = value ?? "";
+    fieldsEl.appendChild(input);
+  });
+
+  document.getElementById("overlay").style.display = "flex";
+}
+
+function closeForm() {
+  document.getElementById("overlay").style.display = "none";
+}
+
+async function saveRow() {
+  const cfg = TABLAS[tablaActual];
+  const body = {};
+  cfg.campos.forEach((campo) => {
+    let val = document.getElementById(`f-${campo.name}`).value;
+    if (cfg.json.includes(campo.name)) {
+      val = val.split(",").map((s) => s.trim()).filter(Boolean);
+    }
+    body[campo.name] = val;
+  });
+
+  const url = editandoId
+    ? `${API_URL}/api/${tablaActual}/${editandoId}`
+    : `${API_URL}/api/${tablaActual}`;
+  const method = editandoId ? "PUT" : "POST";
+
+  try {
+    const res = await fetch(url, {
+      method,
+      headers: { "X-Admin-Key": claveAdmin, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    closeForm();
+    cargarTabla();
+    mostrarStatus("Guardado correctamente.");
+  } catch (e) {
+    mostrarStatus("Error al guardar: " + e.message);
+  }
+}
+
+function editar(row) {
+  openForm(row);
+}
+
+async function borrar(id) {
+  if (!confirm("¿Seguro que querés borrar este registro?")) return;
+  try {
+    const res = await fetch(`${API_URL}/api/${tablaActual}/${id}`, {
+      method: "DELETE",
+      headers: { "X-Admin-Key": claveAdmin },
+    });
+    if (!res.ok) throw new Error(await res.text());
+    cargarTabla();
+    mostrarStatus("Borrado correctamente.");
+  } catch (e) {
+    mostrarStatus("Error al borrar: " + e.message);
+  }
+}
+
+function mostrarStatus(msg) {
+  const el = document.getElementById("status");
+  el.textContent = msg;
+  setTimeout(() => { el.textContent = ""; }, 4000);
+}
+
+// Auto-login si ya había una clave guardada
+if (claveAdmin) {
+  document.getElementById("admin-key-input").value = claveAdmin;
+  probarClave();
+}
+</script>
+
+</body>
+</html>

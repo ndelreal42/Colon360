@@ -17,6 +17,16 @@ function parseJsonFields(row, fields) {
   return out;
 }
 
+function stringifyJsonFields(body, fields) {
+  const out = { ...body };
+  for (const f of fields) {
+    if (out[f] !== undefined && typeof out[f] !== 'string') {
+      out[f] = JSON.stringify(out[f]);
+    }
+  }
+  return out;
+}
+
 async function listHandler(env, key, searchParams) {
   const cfg = TABLES[key];
   let sql = `SELECT * FROM ${cfg.table}`;
@@ -36,6 +46,38 @@ async function byIdHandler(env, id) {
   return row ? parseJsonFields(row, ['tags', 'info']) : null;
 }
 
+function isAdmin(request, env) {
+  return request.headers.get('X-Admin-Key') === env.ADMIN_KEY;
+}
+
+async function createRow(env, key, body) {
+  const cfg = TABLES[key];
+  const clean = stringifyJsonFields(body, cfg.json);
+  const columns = Object.keys(clean);
+  const placeholders = columns.map(() => '?').join(', ');
+  const values = columns.map((c) => clean[c]);
+  const sql = `INSERT INTO ${cfg.table} (${columns.join(', ')}) VALUES (${placeholders})`;
+  await env.DB.prepare(sql).bind(...values).run();
+  return { ok: true };
+}
+
+async function updateRow(env, key, id, body) {
+  const cfg = TABLES[key];
+  const clean = stringifyJsonFields(body, cfg.json);
+  const columns = Object.keys(clean);
+  const setClause = columns.map((c) => `${c} = ?`).join(', ');
+  const values = columns.map((c) => clean[c]);
+  const sql = `UPDATE ${cfg.table} SET ${setClause} WHERE id = ?`;
+  await env.DB.prepare(sql).bind(...values, id).run();
+  return { ok: true };
+}
+
+async function deleteRow(env, key, id) {
+  const cfg = TABLES[key];
+  await env.DB.prepare(`DELETE FROM ${cfg.table} WHERE id = ?`).bind(id).run();
+  return { ok: true };
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -43,36 +85,60 @@ export default {
 
     const headers = {
       'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, X-Admin-Key',
       'Content-Type': 'application/json; charset=utf-8',
     };
 
     if (request.method === 'OPTIONS') return new Response(null, { headers });
-    if (request.method !== 'GET') {
-      return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers });
-    }
 
     try {
+      // GET /api/lugares/:id
       const lugarById = pathname.match(/^\/api\/lugares\/([^/]+)$/);
-      if (lugarById) {
+      if (lugarById && request.method === 'GET') {
         const row = await byIdHandler(env, lugarById[1]);
         if (!row) return new Response(JSON.stringify({ error: 'Not found' }), { status: 404, headers });
         return new Response(JSON.stringify(row), { headers });
       }
 
       const routeMap = {
-        '/api/lugares': 'lugares',
-        '/api/eventos': 'eventos',
-        '/api/servicios': 'servicios',
-        '/api/mapa': 'mapa',
-        '/api/actividades': 'actividades',
-        '/api/juegos': 'juegos',
+        lugares: 'lugares', eventos: 'eventos', servicios: 'servicios',
+        mapa: 'mapa', actividades: 'actividades', juegos: 'juegos',
       };
 
-      const key = routeMap[pathname];
-      if (key) {
-        const data = await listHandler(env, key, searchParams);
-        return new Response(JSON.stringify(data), { headers });
+      // /api/<tabla>  o  /api/<tabla>/:id
+      const match = pathname.match(/^\/api\/([^/]+)(?:\/([^/]+))?$/);
+      if (match) {
+        const [, tableKey, id] = match;
+        const key = routeMap[tableKey];
+
+        if (key) {
+          if (request.method === 'GET') {
+            const data = await listHandler(env, key, searchParams);
+            return new Response(JSON.stringify(data), { headers });
+          }
+
+          if (!isAdmin(request, env)) {
+            return new Response(JSON.stringify({ error: 'No autorizado' }), { status: 401, headers });
+          }
+
+          if (request.method === 'POST') {
+            const body = await request.json();
+            const result = await createRow(env, key, body);
+            return new Response(JSON.stringify(result), { headers });
+          }
+
+          if (request.method === 'PUT' && id) {
+            const body = await request.json();
+            const result = await updateRow(env, key, id, body);
+            return new Response(JSON.stringify(result), { headers });
+          }
+
+          if (request.method === 'DELETE' && id) {
+            const result = await deleteRow(env, key, id);
+            return new Response(JSON.stringify(result), { headers });
+          }
+        }
       }
 
       return new Response(JSON.stringify({ error: 'Not found', path: pathname }), { status: 404, headers });
