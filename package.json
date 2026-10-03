@@ -7,16 +7,21 @@
     "dev": "vite",
     "dev:server": "node server/index.js",
     "build": "vite build",
+    "build:android": "BUILD_TARGET=capacitor vite build",
     "preview": "vite preview",
     "seed": "node server/db/seed.js",
     "start": "node server/index.js"
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/cli": "^8.5.2",
+    "@capacitor/core": "^8.5.2",
     "leaflet": "^1.9.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
     "@vitejs/plugin-react": "^4.3.1",
     "vite": "^5.4.2"
   }
