@@ -37,7 +37,7 @@ Dentro de Android Studio: **Build → Generate Signed Bundle / APK → Android A
   recomendado, y lo que se sugiere en la guía de publicación).
 
 ## Pendiente de decidir antes de compilar el primer build "real"
-- **Identificador de la app (`appId`)**: definido como `com.colon360.app` (en
+- **Identificador de la app (`appId`)**: definido como `ar.com.colon360.app` (en
   `capacitor.config.json` y `android/app/build.gradle`). Es el único dato que queda fijo para
   siempre una vez publicada la primera versión en Play Store, así que si se quiere cambiar tiene
   que ser ANTES del primer build real — después no se puede. Si hace falta cambiarlo: no alcanza
