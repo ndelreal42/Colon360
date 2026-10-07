@@ -1,0 +1,5 @@
+FOTOS DEL CARRUSEL DEL INICIO
+Pone aca las fotos (formato .jpg, .jpeg, .png o .webp) y aparecen solas en el carrusel,
+ordenadas por nombre de archivo (01-playa.jpg, 02-costanera.jpg, 03-puente.jpg ...).
+Tips: horizontales, de unos 1080 px de ancho y menos de 300 KB cada una.
+Si esta carpeta no tiene fotos, se usa la foto de portada de siempre.

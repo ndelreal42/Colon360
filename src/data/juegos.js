@@ -1,0 +1,171 @@
+
+// ─── JUEGOS ──────────────────────────────────────────────────────────────────
+export const JUEGOS_DB = {
+  solo: [
+    {
+      nombre:"20 Verdades de Colón",
+      desc:"Tenés que adivinar un lugar o personaje de Colón. Solo podés hacer 20 preguntas con respuesta SÍ o NO. El juego te va dando pistas.",
+      instrucciones:["Pensá en un lugar secreto de Colón","Hacete estas preguntas mentalmente","¿Está en la costanera? ¿Tiene agua? ¿Es histórico?","Descubrí de qué lugar se trata en 20 preguntas o menos"],
+      emoji:"🧠", duracion:"5-10 min",
+      lugares:["Molino Forclaz","Termas Colón","Playa Honda","Puerto Fluvial","Parque El Palmar","Museo Histórico"],
+    },
+    {
+      nombre:"Fotógrafo Secreto",
+      desc:"Misiones fotográficas para completar. Cada foto tiene un puntaje según la dificultad. Jugá sin mostrársela a nadie.",
+      instrucciones:["Tomate 10 minutos","Completá la mayor cantidad de fotos posibles","Cada foto vale puntos","Sumalas al final"],
+      misiones:[
+        {puntos:1,tarea:"Una foto de algo azul natural"},
+        {puntos:2,tarea:"El reflejo del río en algo"},
+        {puntos:3,tarea:"Una foto artística del cielo"},
+        {puntos:2,tarea:"Algo que solo existe en Colón"},
+        {puntos:3,tarea:"Una sombra interesante"},
+      ],
+      emoji:"📸", duracion:"10 min",
+    },
+    {
+      nombre:"Trivia Colonense",
+      desc:"¿Cuánto sabés de Colón? 10 preguntas de historia, naturaleza y cultura local. Respondé mentalmente.",
+      instrucciones:["Leé cada pregunta","Pensá tu respuesta","Verificá el resultado","Sumá 1 punto por cada acierto"],
+      preguntas:[
+        {p:"¿A cuántos km está el Parque Nacional El Palmar?",r:"55 km (por Ruta 14)"},
+        {p:"¿Cómo se llama el molino histórico del S.XIX?",r:"Molino Forclaz"},
+        {p:"¿En qué año fue fundada la ciudad de Colón?",r:"1863"},
+        {p:"¿Qué río bordea la costa de Colón?",r:"El río Uruguay"},
+        {p:"¿Cuál es el pez más buscado en la pesca deportiva local?",r:"El dorado"},
+      ],
+      emoji:"🏆", duracion:"5 min",
+    },
+    {
+      nombre:"Bingo del Viajero",
+      desc:"Cartón de bingo con cosas para ver y vivir en Colón. ¡Marcá lo que encontrés a tu alrededor!",
+      instrucciones:["Mirá el cartón","Marcá todo lo que veas o hayas hecho hoy","¿Completás una línea?"],
+      casillas:["Palmera","Barco en el río","Heladería","Persona con mate","Bandera argentina","Cartel de playa","Bicicleta","Pájaro colorido","Puesto de artesanías","Persona haciendo running"],
+      emoji:"🎰", duracion:"indefinido",
+    },
+  ],
+  pareja: [
+    {
+      nombre:"¿Me conocés?",
+      desc:"Uno escribe la respuesta a una pregunta sobre sí mismo. El otro adivina. Después se comparan. Perfecto para parejas.",
+      instrucciones:["Cada uno anota su respuesta en silencio","El otro adivina en voz alta","Comparen resultados","Gana quien más acierta"],
+      preguntas:[
+        "¿Cuál sería tu plan ideal para este fin de semana?",
+        "¿Qué plato pedirías si fueras a Campo Adentro?",
+        "¿Preferís la playa de mañana o al atardecer?",
+        "¿Qué lugar de Colón te gustaría volver a visitar?",
+        "¿Termas o río? ¿Por qué?",
+        "¿Qué recordarías más de este viaje?",
+      ],
+      emoji:"💑", duracion:"15 min",
+    },
+    {
+      nombre:"Adivina Mi Foto",
+      desc:"Uno saca una foto sin mostrarla. El otro tiene que adivinar qué fotografió solo con 5 pistas.",
+      instrucciones:["Uno saca una foto de algo a su alrededor sin mostrarla","Da 5 pistas de a una, de más difícil a más fácil","El otro adivina cuándo puede","Más rápido = más puntos"],
+      emoji:"📷", duracion:"10 min",
+    },
+    {
+      nombre:"Mapa Mental Compartido",
+      desc:"Sin mirarse, ambos dibujan el mapa de la costanera de Colón como lo recuerdan. Después comparan.",
+      instrucciones:["Cada uno dibuja en su teléfono (notas) o en papel","Incluyen: playas, puerto, puntos de referencia","Comparan los mapas","¿En qué se parecen? ¿Qué diferencias hay?"],
+      emoji:"🗺️", duracion:"10 min",
+    },
+    {
+      nombre:"Este o Aquél — Colón Edition",
+      desc:"Dilemas relacionados con el viaje. Turnos alternados, sin pensarlo más de 5 segundos.",
+      instrucciones:["Turnos alternados","Sin pensarlo más de 5 segundos","Si tarda más de 5 seg, el otro elige"],
+      dilemas:[
+        "¿Termas o río natural?","¿Amanecer o atardecer en la costa?",
+        "¿Parrilla o pescado del río?","¿Playa sola o llena de gente?",
+        "¿Quedarse más días o explorar otro destino?","¿Kayak o excursión náutica?",
+      ],
+      emoji:"🔀", duracion:"10 min",
+    },
+  ],
+  amigos: [
+    {
+      nombre:"Yo nunca... en Colón",
+      desc:"Versión viajera del clásico. Quien SÍ lo hizo, toma o hace una penitencia (elegida por el grupo).",
+      instrucciones:["En ronda, cada uno dice: 'Yo nunca...' + algo del viaje","Quien sí lo hizo, cumple la penitencia","Penitencias: contar un secreto, hacer un reto, etc."],
+      ejemplos:[
+        "Yo nunca me tiré al río Uruguay","Yo nunca fui a las termas",
+        "Yo nunca probé el dorado a la parrilla","Yo nunca madrugué para ver el amanecer en la playa",
+        "Yo nunca me perdí en Colón","Yo nunca hablé con un local del pueblo",
+      ],
+      emoji:"🙅", duracion:"20 min",
+    },
+    {
+      nombre:"Mafia Colonense",
+      desc:"El clásico Mafia adaptado a Colón. Roles: Mafia (quieren dominar el turismo), Policía Turística, Médico del pueblo, Ciudadanos.",
+      instrucciones:["1 narrador (el que tiene la app)","Asignar roles en secreto","Noche: Mafia elige víctima","Día: todos debaten quién es la Mafia","Gana Mafia si supera a ciudadanos"],
+      roles:["Mafia (1-2): elimina turistas cada noche","Policía Turística: salva a alguien cada noche","Médico del pueblo: protege a uno cada noche","Ciudadano x4+: votan de día"],
+      emoji:"🕵️", duracion:"30 min",
+    },
+    {
+      nombre:"Carrera de Conocimiento",
+      desc:"Trivia en equipos sobre Colón y Entre Ríos. Primer equipo en llegar a 10 puntos gana.",
+      instrucciones:["Dividirse en 2 equipos","Turnos alternados de preguntas","1 punto por respuesta correcta","Primero en llegar a 10 gana"],
+      preguntas:[
+        {p:"¿Qué palma es emblema del Parque El Palmar?",r:"Palma yatay"},
+        {p:"¿En qué provincia argentina está Colón?",r:"Entre Ríos"},
+        {p:"¿Cómo se llama el palacio del Gral. Urquiza cerca de Colón?",r:"Palacio San José"},
+        {p:"¿Qué animal autóctono abunda en el Parque El Palmar?",r:"Carpincho / yacaré"},
+        {p:"¿Qué puente une Colón (AR) con Paysandú (UY)?",r:"Puente Gral. Artigas"},
+      ],
+      emoji:"🏁", duracion:"20 min",
+    },
+    {
+      nombre:"Reto Físico Costanero",
+      desc:"Minijuegos para hacer en la costanera. Cada reto vale puntos. El que más suma gana.",
+      instrucciones:["Solo se necesita el cuerpo y el entorno","Un árbitro con el teléfono","Completar el reto para sumar puntos"],
+      retos:[
+        {pts:1,reto:"¿Quién llega primero a ese árbol? (sprint 20m)"},
+        {pts:2,reto:"¿Quién aguanta más tiempo en equilibrio sobre un pie?"},
+        {pts:3,reto:"Contar los barcos/kayaks visibles desde la orilla — más cercano al número real gana"},
+        {pts:2,reto:"Tirar una piedra al río — ¿quién hace más rebotes?"},
+        {pts:1,reto:"¿Quién adivina la temperatura del agua?"},
+      ],
+      emoji:"🏃", duracion:"15 min",
+    },
+  ],
+  familia: [
+    {
+      nombre:"Buscador de Colón",
+      desc:"Lista de objetos y cosas para encontrar caminando por la costanera. ¡El primero que encuentra todo gana!",
+      instrucciones:["Cada uno tiene la misma lista","Salen juntos a buscar","Primero en encontrar todo o más cosas en 15 min gana"],
+      buscar:["Una piedra redonda","Algo del color naranja","Un pájaro","El nombre de una calle","Algo de madera vieja","Un barco o lancha","Una flor silvestre","La sombra de una persona"],
+      emoji:"🔍", duracion:"15 min",
+    },
+    {
+      nombre:"¿Quién soy? — Versión Colón",
+      desc:"Post-it en la frente (o usar la mano tapando). Adivinás quién sos haciendo preguntas SÍ/NO.",
+      instrucciones:["Un jugador piensa en un 'personaje' o lugar de Colón","Los demás hacen preguntas de SÍ/NO","Máximo 20 preguntas","Si adivinás, te toca elegir el siguiente"],
+      personajes:["El Dorado","El Molino Forclaz","Las Termas","El río Uruguay","El Carpincho","La Palmera Yatay","Un kayak","La Playa Norte"],
+      emoji:"🎭", duracion:"20 min",
+    },
+    {
+      nombre:"Cuentacuentos del Río",
+      desc:"Todos juntos inventan una historia de aventuras ambientada en Colón. Cada uno agrega una frase.",
+      instrucciones:["Alguien empieza: 'Había una vez en Colón...'","Cada uno agrega UNA frase en su turno","La historia debe incluir al menos: el río, un animal, una aventura","Graben la historia en audio al final"],
+      inicio:[
+        "Había una vez un carpincho que vivía en la orilla del Uruguay...",
+        "Una tarde en la Playa Norte, una familia encontró una botella con un mapa...",
+        "El guardaparques del Palmar descubrió algo increíble entre las palmeras...",
+      ],
+      emoji:"📖", duracion:"15 min",
+    },
+    {
+      nombre:"Mini Olimpiadas Familiares",
+      desc:"5 pruebas rápidas para hacer en cualquier lugar. Cada prueba tiene un campeón. ¿Quién gana el oro familiar?",
+      instrucciones:["5 pruebas, 5 campeones posibles","Árbitro: el que tiene el teléfono","Al final, el que ganó más pruebas es el Campeón Familiar"],
+      pruebas:[
+        "Equilibrio: ¿quién para más tiempo en un pie con los ojos cerrados?",
+        "Memoria: mirar 10 segundos la pantalla, dar vuelta y decir de qué color era cada emoji",
+        "Velocidad mental: primero en decir 5 cosas que se ven desde acá",
+        "Artístico: mejor dibujo de un carpincho en el teléfono (notas)",
+        "Conocimiento: ¿quién sabe más capitales de provincias argentinas?",
+      ],
+      emoji:"🥇", duracion:"20 min",
+    },
+  ],
+};
