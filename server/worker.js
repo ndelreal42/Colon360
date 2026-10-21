@@ -1,3 +1,5 @@
+import { handleRio } from './rio.js';
+
 const TABLES = {
   lugares:     { table: 'lugares',         order: 'tipo, nombre',     json: ['tags', 'info'],       filterable: ['tipo', 'categoria'] },
   eventos:     { table: 'eventos',         order: 'mes, dia',         json: ['tags', 'info'],       filterable: ['dia', 'mes'] },
@@ -93,6 +95,11 @@ export default {
     if (request.method === 'OPTIONS') return new Response(null, { headers });
 
     try {
+      // GET /api/rio  (altura del río Uruguay en Colón, desde Prefectura)
+      if (pathname === '/api/rio' && request.method === 'GET') {
+        return await handleRio(searchParams, headers, isAdmin(request, env));
+      }
+
       // GET /api/lugares/:id
       const lugarById = pathname.match(/^\/api\/lugares\/([^/]+)$/);
       if (lugarById && request.method === 'GET') {

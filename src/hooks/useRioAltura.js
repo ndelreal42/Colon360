@@ -1,74 +1,34 @@
 import { useState, useEffect } from "react";
+import { apiFetch } from "../lib/api.js";
 
-const PNA_URL = "https://contenidosweb.prefecturanaval.gob.ar/alturas/?page=historico&tiempo=7&id=710";
-const PROXY = `https://api.allorigins.win/get?url=${encodeURIComponent(PNA_URL)}`;
-
-// Calcula si el río sube, baja o está estable comparando las dos últimas lecturas
-function calcularTendencia(actual, anterior) {
-  const a = parseFloat(actual), b = parseFloat(anterior);
-  if (Number.isNaN(a) || Number.isNaN(b)) return null;
-  const dif = a - b;
-  if (dif > 0.01) return "sube";
-  if (dif < -0.01) return "baja";
-  return "estable";
-}
-
-function parsearAltura(html) {
-  try {
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, "text/html");
-    const rows = doc.querySelectorAll("table tr");
-    // Se juntan todas las lecturas numéricas; la última es la más reciente
-    const lecturas = [];
-    for (let i = 0; i < rows.length; i++) {
-      const cells = rows[i].querySelectorAll("td");
-      if (cells.length >= 3) {
-        const texto = cells[0].textContent.trim();
-        if (/^-?\d+\.\d+$/.test(texto)) {
-          lecturas.push({ altura: texto, estado: cells[1]?.textContent.trim() || "Normal" });
-          continue;
-        }
-        for (let j = 0; j < cells.length; j++) {
-          const val = cells[j].textContent.trim();
-          if (/^-?\d+\.\d+$/.test(val)) {
-            lecturas.push({ altura: val, estado: cells[j + 1]?.textContent.trim() || "Normal" });
-            break;
-          }
-        }
-      }
-    }
-    if (lecturas.length) {
-      const ultima = lecturas[lecturas.length - 1];
-      const previa = lecturas.length > 1 ? lecturas[lecturas.length - 2] : null;
-      return { ...ultima, tendencia: previa ? calcularTendencia(ultima.altura, previa.altura) : null };
-    }
-    // Fallback: buscar cualquier número decimal en el HTML (sin tendencia)
-    const numeros = html.match(/-?\d+\.\d{2}/g);
-    if (numeros?.length) return { altura: numeros[0], estado: "Normal", tendencia: null };
-  } catch (e) {
-    console.error("Error parseando PNA:", e);
-  }
-  return null;
-}
-
+// La altura del río Uruguay en Colón la lee el servidor (Cloudflare Worker) desde
+// Prefectura Naval y la entrega ya procesada en /api/rio. Acá sólo se muestra.
+// El valor que devuelve el hook mantiene la misma forma que usa App.jsx:
+// { altura: "6.68 m", estado, tendencia: "sube" | "baja" | "estable" | null, loading, error }
 export function useRioAltura() {
-  const [data, setData] = useState({ altura: null, estado: null, tendencia: null, loading: true, error: false });
+  const [data, setData] = useState({ altura: null, estado: null, tendencia: null, fecha: null, loading: true, error: false });
 
   useEffect(() => {
     let cancelled = false;
-    fetch(PROXY)
-      .then(r => r.json())
-      .then(json => {
+    apiFetch("/rio")
+      .then((r) => {
         if (cancelled) return;
-        const resultado = parsearAltura(json.contents || "");
-        if (resultado) {
-          setData({ altura: resultado.altura + " m", estado: resultado.estado, tendencia: resultado.tendencia, loading: false, error: false });
-        } else {
-          setData(d => ({ ...d, loading: false, error: true }));
+        // Una lectura de hace más de 48 hs se trata como "sin datos" para no mostrar un valor viejo como si fuera actual.
+        if (typeof r.altura !== "number" || r.desactualizado) {
+          setData((d) => ({ ...d, loading: false, error: true }));
+          return;
         }
+        setData({
+          altura: r.altura.toFixed(2) + " m",
+          estado: r.estado || "Normal",
+          tendencia: r.tendencia || null,
+          fecha: r.fecha || null,
+          loading: false,
+          error: false,
+        });
       })
       .catch(() => {
-        if (!cancelled) setData(d => ({ ...d, loading: false, error: true }));
+        if (!cancelled) setData((d) => ({ ...d, loading: false, error: true }));
       });
     return () => { cancelled = true; };
   }, []);
