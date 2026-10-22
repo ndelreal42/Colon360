@@ -18,6 +18,7 @@ export default function DetailPage({ item, onBack, paradores = [] }) {
     : [];
   const waNumero = normalizarWhatsApp(item.whatsapp);
   const cartaUrl = urlSegura(item.carta);
+  const esParaComer = item.tipo === "restaurante" || item.tipo === "cafe";
   const esAlojamiento = item.tipo === "hotel";
   const hoy = new Date();
   const hoyISO = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,"0")}-${String(hoy.getDate()).padStart(2,"0")}`;
@@ -73,23 +74,36 @@ export default function DetailPage({ item, onBack, paradores = [] }) {
         {item.dir && <InfoRow icon="📍" label="Dirección" value={item.dir} color={color}/>}
         {item.lugar && <InfoRow icon="📍" label="Lugar" value={item.lugar} color={color}/>}
         {item.tel && item.tel !== '—' && <InfoRow icon="📞" label="Contacto" value={item.tel} color={color} onClick={()=>abrirContacto(item.tel)}/>}
+        {(item.tipo==="parador"||item.tipo==="camping") && !waNumero && (
+          <button disabled style={{width:"100%",background:"#e0e0e0",border:"none",borderRadius:14,padding:"13px",fontSize:13,fontWeight:800,color:"#fff",cursor:"not-allowed",fontFamily:"inherit",marginBottom:8}}>💬 WhatsApp próximamente</button>
+        )}
         {(item.tipo==="parador"||item.tipo==="camping") && waNumero && (
           <button onClick={()=>window.open(`https://wa.me/${waNumero}?text=${encodeURIComponent(`Hola, ${saludoSegunHora()}! Vi tu ${item.tipo} "${item.nombre}" en la app Colón 360 y quería consultarte. ¡Gracias!`)}`,"_blank")} style={{width:"100%",background:"linear-gradient(135deg,#25D366,#128C7E)",border:"none",borderRadius:14,padding:"13px",fontSize:13,fontWeight:800,color:"#fff",cursor:"pointer",fontFamily:"inherit",marginBottom:8}}>💬 Consultar por WhatsApp</button>
         )}
         {item.wa && <InfoRow icon="💬" label="WhatsApp" value="Consultar por WhatsApp" color="#25D366" onClick={()=>window.open(item.wa,'_blank')}/>}
 
-        {cartaUrl && (
+        {(cartaUrl || esParaComer) && (
           <>
             <div style={{fontSize:10,color:"#bbb",fontWeight:700,letterSpacing:2,textTransform:"uppercase",margin:"18px 0 10px",fontFamily:"'DM Sans',sans-serif"}}>CARTA</div>
-            <button onClick={()=>window.open(cartaUrl,"_blank","noopener,noreferrer")}
-              style={{width:"100%",display:"flex",alignItems:"center",gap:12,background:"#fff",border:`1.5px solid ${color}40`,borderRadius:16,padding:"14px 16px",cursor:"pointer",fontFamily:"inherit",textAlign:"left",boxShadow:"0 4px 16px rgba(0,0,0,0.06)"}}>
-              <div style={{width:42,height:42,borderRadius:12,background:`${color}14`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>📖</div>
-              <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:14,fontWeight:800,color:"#1a1a2e",fontFamily:"'DM Sans',sans-serif"}}>Ver la carta</div>
-                <div style={{fontSize:11,color:"#aaa",marginTop:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>Mirá el menú de {item.nombre||"este lugar"}</div>
+            {cartaUrl ? (
+              <button onClick={()=>window.open(cartaUrl,"_blank","noopener,noreferrer")}
+                style={{width:"100%",display:"flex",alignItems:"center",gap:12,background:"#fff",border:`1.5px solid ${color}40`,borderRadius:16,padding:"14px 16px",cursor:"pointer",fontFamily:"inherit",textAlign:"left",boxShadow:"0 4px 16px rgba(0,0,0,0.06)"}}>
+                <div style={{width:42,height:42,borderRadius:12,background:`${color}14`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>📖</div>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:14,fontWeight:800,color:"#1a1a2e",fontFamily:"'DM Sans',sans-serif"}}>Ver la carta</div>
+                  <div style={{fontSize:11,color:"#aaa",marginTop:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>Mirá el menú de {item.nombre||"este lugar"}</div>
+                </div>
+                <span style={{fontSize:18,color,fontWeight:700}}>↗</span>
+              </button>
+            ) : (
+              <div style={{display:"flex",alignItems:"center",gap:12,background:"#fafafa",border:"1.5px dashed #ddd",borderRadius:16,padding:"14px 16px"}}>
+                <div style={{width:42,height:42,borderRadius:12,background:"#f0f0f0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0,filter:"grayscale(1)",opacity:0.6}}>📖</div>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:14,fontWeight:800,color:"#999",fontFamily:"'DM Sans',sans-serif"}}>Carta próximamente</div>
+                  <div style={{fontSize:11,color:"#bbb",marginTop:2}}>Este lugar todavía no cargó su menú</div>
+                </div>
               </div>
-              <span style={{fontSize:18,color,fontWeight:700}}>↗</span>
-            </button>
+            )}
           </>
         )}
 
@@ -119,23 +133,23 @@ export default function DetailPage({ item, onBack, paradores = [] }) {
                   )}
                   {par.desc && <div style={{fontSize:13,color:"#555",lineHeight:1.6,fontFamily:"'DM Sans',sans-serif",margin:"6px 0 8px"}}>{par.desc}</div>}
                   {par.tags && par.tags.length>0 && (
-                    <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:(wa||par.tel)?10:0}}>
+                    <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10}}>
                       {par.tags.map(t=><span key={t} style={{fontSize:10,fontWeight:600,padding:"3px 10px",borderRadius:20,background:`${color}12`,color,border:`1px solid ${color}25`}}>{t}</span>)}
                     </div>
                   )}
-                  {(wa || (par.tel && par.tel!=="—")) && (
-                    <div style={{display:"flex",gap:8}}>
-                      {wa && <button onClick={()=>window.open(`https://wa.me/${wa}?text=${encodeURIComponent(msgPar)}`,"_blank")} style={{flex:1,background:"linear-gradient(135deg,#25D366,#128C7E)",border:"none",borderRadius:12,padding:"11px",fontSize:12,fontWeight:800,color:"#fff",cursor:"pointer",fontFamily:"inherit"}}>💬 WhatsApp</button>}
-                      {par.tel && par.tel!=="—" && <button onClick={()=>abrirContacto(par.tel)} style={{flex:1,background:"#f5f5f5",border:"none",borderRadius:12,padding:"11px",fontSize:12,fontWeight:700,color:"#333",cursor:"pointer",fontFamily:"inherit"}}>📞 Llamar</button>}
-                    </div>
-                  )}
+                  <div style={{display:"flex",gap:8}}>
+                    {wa
+                      ? <button onClick={()=>window.open(`https://wa.me/${wa}?text=${encodeURIComponent(msgPar)}`,"_blank")} style={{flex:1,background:"linear-gradient(135deg,#25D366,#128C7E)",border:"none",borderRadius:12,padding:"11px",fontSize:12,fontWeight:800,color:"#fff",cursor:"pointer",fontFamily:"inherit"}}>💬 WhatsApp</button>
+                      : <button disabled style={{flex:1,background:"#e0e0e0",border:"none",borderRadius:12,padding:"11px",fontSize:12,fontWeight:800,color:"#fff",cursor:"not-allowed",fontFamily:"inherit"}}>💬 WhatsApp próximamente</button>}
+                    {par.tel && par.tel!=="—" && <button onClick={()=>abrirContacto(par.tel)} style={{flex:1,background:"#f5f5f5",border:"none",borderRadius:12,padding:"11px",fontSize:12,fontWeight:700,color:"#333",cursor:"pointer",fontFamily:"inherit"}}>📞 Llamar</button>}
+                  </div>
                 </div>
               );
             })}
           </Fragment>
         ))}
 
-        {esAlojamiento && waNumero && (
+        {esAlojamiento && (
           <>
             <div style={{fontSize:10,color:"#bbb",fontWeight:700,letterSpacing:2,textTransform:"uppercase",margin:"18px 0 10px",fontFamily:"'DM Sans',sans-serif"}}>CONSULTAR DISPONIBILIDAD</div>
             <div style={{background:"#fff",borderRadius:16,padding:"18px 16px",border:"1px solid #e8f5e9",boxShadow:"0 4px 16px rgba(0,0,0,0.06)"}}>
@@ -173,12 +187,13 @@ export default function DetailPage({ item, onBack, paradores = [] }) {
                 <div style={{fontSize:12,color:"#333",lineHeight:1.7,fontFamily:"'DM Sans',sans-serif",whiteSpace:"pre-line"}}>{mensaje}</div>
               </div>
 
-              <button onClick={enviarWA} disabled={!fechasOk}
-                style={{width:"100%",background:fechasOk?"linear-gradient(135deg,#25D366,#128C7E)":"#ccc",border:"none",borderRadius:14,padding:"15px",fontSize:14,fontWeight:800,color:"#fff",cursor:fechasOk?"pointer":"not-allowed",fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+              <button onClick={enviarWA} disabled={!fechasOk || !waNumero}
+                style={{width:"100%",background:(fechasOk&&waNumero)?"linear-gradient(135deg,#25D366,#128C7E)":"#ccc",border:"none",borderRadius:14,padding:"15px",fontSize:14,fontWeight:800,color:"#fff",cursor:(fechasOk&&waNumero)?"pointer":"not-allowed",fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
                 <span style={{fontSize:18}}>💬</span>
-                Enviar por WhatsApp
+                {waNumero ? "Enviar por WhatsApp" : "WhatsApp próximamente"}
               </button>
-              {!fechasOk && <div style={{textAlign:"center",fontSize:11,color:"#aaa",marginTop:6}}>Elegí la llegada y una salida posterior para continuar</div>}
+              {!waNumero && <div style={{textAlign:"center",fontSize:11,color:"#aaa",marginTop:6}}>Este alojamiento todavía no cargó su WhatsApp{item.tel && item.tel!=="—" ? ". Mientras tanto podés llamarlo." : "."}</div>}
+              {waNumero && !fechasOk && <div style={{textAlign:"center",fontSize:11,color:"#aaa",marginTop:6}}>Elegí la llegada y una salida posterior para continuar</div>}
             </div>
           </>
         )}
