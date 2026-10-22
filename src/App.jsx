@@ -69,21 +69,31 @@ const { data: eventosAPI } = useEventos();
   const rioAltura = useRioAltura();
 
   // Clima real — Open-Meteo (gratuito, sin API key) — Colón, Entre Ríos
+  // Trae el clima actual y el pronóstico de los próximos 3 días en un solo pedido.
+  const [pronostico, setPronostico] = useState([]);
   useEffect(()=>{
-    fetch("https://api.open-meteo.com/v1/forecast?latitude=-32.22&longitude=-58.16&current=temperature_2m,weathercode&timezone=America%2FArgentina%2FBuenos_Aires")
+    const descIcono = c =>
+      c===0?["Despejado","☀️"]:
+      c<=3?["Parcial. nublado","⛅"]:
+      c<=48?["Neblina","🌫️"]:
+      c<=67?["Lluvioso","🌧️"]:
+      c<=77?["Nieve","❄️"]:
+      c<=82?["Chubascos","🌦️"]:
+      ["Tormenta","⛈️"];
+    const DIAS=["DOM","LUN","MAR","MIÉ","JUE","VIE","SÁB"];
+    fetch("https://api.open-meteo.com/v1/forecast?latitude=-32.22&longitude=-58.16&current=temperature_2m,weathercode&daily=weathercode,temperature_2m_max&forecast_days=4&timezone=America%2FArgentina%2FBuenos_Aires")
       .then(r=>r.json())
       .then(d=>{
         const t=Math.round(d.current.temperature_2m);
-        const c=d.current.weathercode;
-        const [desc,icon]=
-          c===0?["Despejado","☀️"]:
-          c<=3?["Parcial. nublado","⛅"]:
-          c<=48?["Neblina","🌫️"]:
-          c<=67?["Lluvioso","🌧️"]:
-          c<=77?["Nieve","❄️"]:
-          c<=82?["Chubascos","🌦️"]:
-          ["Tormenta","⛈️"];
+        const [desc,icon]=descIcono(d.current.weathercode);
         setClima({temp:`${t}°C`,desc,icon});
+        // Días siguientes (el 0 es hoy). La fecha viene como "2026-10-22"; se lee al mediodía para evitar corrimientos de zona horaria.
+        const dias=(d.daily?.time||[]).slice(1,4).map((f,i)=>({
+          dia: DIAS[new Date(f+"T12:00:00").getDay()],
+          icon: descIcono(d.daily.weathercode[i+1])[1],
+          temp: `${Math.round(d.daily.temperature_2m_max[i+1])}°`,
+        }));
+        setPronostico(dias);
       })
       .catch(()=>{setClima({temp:"--°C",desc:"Sin datos",icon:"☀️"});});
   },[]);
@@ -302,9 +312,7 @@ const { data: eventosAPI } = useEventos();
                 <div style={{display:"flex",gap:14}}>
                   {[
                     {dia:"HOY", icon:clima.icon, temp:clima.temp},
-                    {dia:"VIE", icon:"🌥️", temp:"24°"},
-                    {dia:"SÁB", icon:"⛅", temp:"23°"},
-                    {dia:"DOM", icon:"🌤️", temp:"21°"},
+                    ...pronostico,
                   ].map(d=>(
                     <div key={d.dia} style={{textAlign:"center"}}>
                       <div style={{fontSize:9,fontWeight:700,color:"#999",letterSpacing:0.5}}>{d.dia}</div>
