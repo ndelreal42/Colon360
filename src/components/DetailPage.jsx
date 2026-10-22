@@ -1,3 +1,4 @@
+import CalendarioRango from "./CalendarioRango.jsx";
 import { useState, Fragment } from "react";
 import { abrirContacto } from "../lib/helpers.js";
 
@@ -157,20 +158,7 @@ export default function DetailPage({ item, onBack, paradores = [] }) {
 
               <div style={{marginBottom:14}}>
                 <div style={{fontSize:11,color:"#888",fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>📅 Fechas</div>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-                  <div>
-                    <div style={{fontSize:11,color:"#aaa",marginBottom:4}}>Llegada</div>
-                    <input type="date" value={desde} min={hoyISO} onChange={e=>{setDesde(e.target.value); if(hasta && e.target.value>=hasta) setHasta("");}}
-                      style={{width:"100%",padding:"10px 10px",borderRadius:12,border:"1.5px solid #e0e0e0",fontSize:13,fontFamily:"'DM Sans',sans-serif",color:"#333",background:"#fafafa",boxSizing:"border-box",outline:"none"}}
-                    />
-                  </div>
-                  <div>
-                    <div style={{fontSize:11,color:"#aaa",marginBottom:4}}>Salida</div>
-                    <input type="date" value={hasta} min={desde||hoyISO} onChange={e=>setHasta(e.target.value)}
-                      style={{width:"100%",padding:"10px 10px",borderRadius:12,border:"1.5px solid #e0e0e0",fontSize:13,fontFamily:"'DM Sans',sans-serif",color:"#333",background:"#fafafa",boxSizing:"border-box",outline:"none"}}
-                    />
-                  </div>
-                </div>
+                <CalendarioRango desde={desde} hasta={hasta} minISO={hoyISO} onChange={(d,h)=>{setDesde(d);setHasta(h);}} />
               </div>
 
               <div style={{marginBottom:16}}>
