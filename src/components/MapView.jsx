@@ -1,9 +1,19 @@
 import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { maplibreGL } from "@maplibre/maplibre-gl-leaflet";
+import { setWorkerUrl } from "maplibre-gl";
+// Con Vite hay que indicarle a MapLibre dónde está su "worker" (el que dibuja los mapas en segundo plano).
+import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
+setWorkerUrl(workerUrl);
 import { CAT_COLOR } from "../data/constants.js";
 
 const COLON_CENTER = [-32.2261, -58.1415];
+
+// Base del mapa: OpenFreeMap (gratis, sin clave, uso comercial permitido), estilo "liberty" (calles claras, parques y agua bien marcados).
+// Si por algún motivo no carga (sin WebGL o servicio caído), se usa el mapa clásico de OpenStreetMap como respaldo.
+const ESTILO_MAPA = "https://tiles.openfreemap.org/styles/liberty";
+const ATRIBUCION = '© <a href="https://openmaptiles.org/" target="_blank" rel="noopener">OpenMapTiles</a> · Datos © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>';
 
 export default function MapView({ mapFilter, setMapFilter, mapCats, lugares, onVer, go }) {
   const mapDivRef = useRef(null);
@@ -20,14 +30,30 @@ export default function MapView({ mapFilter, setMapFilter, mapCats, lugares, onV
     const map = L.map(mapDivRef.current, {
       center: COLON_CENTER,
       zoom: 14,
+      minZoom: 5,
       zoomControl: true,
     });
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-      maxZoom: 19,
-    }).addTo(map);
+    let respaldo = null;
+    const usarRespaldo = () => {
+      if (respaldo) return;
+      respaldo = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+        maxZoom: 19,
+      }).addTo(map);
+    };
+    let chequeo = null;
+    try {
+      const gl = maplibreGL({ style: ESTILO_MAPA }).addTo(map);
+      map.attributionControl.addAttribution(ATRIBUCION); // crédito obligatorio de OpenMapTiles / OpenStreetMap
+      const glMap = gl.getMaplibreMap();
+      // Si el estilo no se descargó a tiempo, se pasa al mapa de respaldo.
+      chequeo = setTimeout(() => { if (!glMap.isStyleLoaded()) usarRespaldo(); }, 8000);
+    } catch (e) {
+      usarRespaldo();
+    }
     mapInstanceRef.current = map;
     return () => {
+      clearTimeout(chequeo);
       map.remove();
       mapInstanceRef.current = null;
     };

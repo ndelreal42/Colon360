@@ -1,24 +1,28 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import LOGO_APP from "./assets/logo-app.png";
 import HeroCarousel from "./components/HeroCarousel.jsx";
 import { getRecomendacionAhora } from "./lib/recomendacion.js";
-import { MAPA_CATS, armarLugaresMapa } from "./lib/mapa.js";
+import { MAPA_CATS, armarLugaresMapa, coordsDe } from "./lib/mapa.js";
 import { DATA } from "./data/lugares.js";
 import { isAbierto, calcKm, abrirMaps } from "./lib/helpers.js";
 import { LUGAR_COORDS } from "./data/geo.js";
 import DetailPage from "./components/DetailPage.jsx";
+import RuletaModal from "./components/RuletaModal.jsx";
 import PlannerPage from "./components/PlannerPage.jsx";
 import ServiciosPage from "./components/ServiciosPage.jsx";
 import { AGENDA_POOL } from "./lib/eventos.js";
 import JuegosPage from "./components/JuegosPage.jsx";
 import RelaxPage from "./components/RelaxPage.jsx";
 import BottomNav from "./components/BottomNav.jsx";
-import MapView from "./components/MapView";
+// El mapa se descarga recién cuando alguien abre esa pantalla (así la app inicia más liviana).
+const MapView = lazy(() => import("./components/MapView"));
 import AhoraModePage from "./components/AhoraModePage";
 import { useRioAltura } from "./hooks/useRioAltura.js";
 import { useLugares } from "./hooks/useLugares.js";
 import { useEventos } from "./hooks/useEventos.js";
 
+
+const quitarAcentos = (t) => String(t||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();
 
 // ─── MAIN ─────────────────────────────────────────────────────────────────────
 export default function Colon360() {
@@ -26,7 +30,11 @@ export default function Colon360() {
   const { data: restaurantesAPI } = useLugares("restaurante");
   const { data: alojamientosAPI } = useLugares("hotel");
 const { data: eventosAPI } = useEventos();
-  const { data: lugaresAPI } = useLugares();
+  const { data: lugaresTodos } = useLugares();
+  // Los paradores/carritos y campings se muestran dentro de la ficha de su playa, no en los listados generales.
+  const esDePlaya = l => l.tipo==="parador" || l.tipo==="camping";
+  const paradoresAPI = lugaresTodos.filter(esDePlaya);
+  const lugaresAPI = lugaresTodos.filter(l=>!esDePlaya(l));
   const [tab, setTab] = useState(() => {
     const p = new URLSearchParams(window.location.search).get('tab');
     return p || 'inicio';
@@ -37,13 +45,10 @@ const { data: eventosAPI } = useEventos();
   const [selectedMarker, setSelectedMarker] = useState(null);
   const [time, setTime] = useState(new Date());
   const [atrFilter, setAtrFilter] = useState("Todos");
-  const [alojFilter, setAlojFilter] = useState([]);
+  const [alojFilter, setAlojFilter] = useState("Todos"); // tipo de alojamiento elegido
   const [playaFilter, setPlayaFilter] = useState("Todas");
   const [gastroFilter, setGastroFilter] = useState("Todo");
   const [ruletaModal, setRuletaModal] = useState(false);
-  const [ruletaItem, setRuletaItem] = useState(null);
-  const [ruletaSpinning, setRuletaSpinning] = useState(false);
-  const [ruletaDisplay, setRuletaDisplay] = useState(null);
   const [planDias, setPlanDias] = useState(1);
   const [planPerfil, setPlanPerfil] = useState([]);
   const [planTemas, setPlanTemas] = useState([]);
@@ -259,7 +264,7 @@ const { data: eventosAPI } = useEventos();
 
   if (detail) return (
     <div style={{maxWidth:430,margin:"0 auto",fontFamily:"'DM Sans',sans-serif",height:"100svh",overflowY:"auto"}}>
-      <DetailPage item={detail} onBack={closeDetail}/>
+      <DetailPage item={detail} onBack={closeDetail} paradores={paradoresAPI}/>
       <BottomNav tab={tab} go={go}/>
     </div>
   );
@@ -376,11 +381,22 @@ const { data: eventosAPI } = useEventos();
           atractivos:   {title: atrFilter==="Eventos" ? "Agenda 2026" : "Explorar Colón", sub: atrFilter==="Eventos" ? "Eventos, ferias y actividades" : "Todo lo que Colón tiene para ofrecerte", data:lugaresAPI, grad:"linear-gradient(135deg,#795548,#F9A825)"},
         };
         const {title,sub,data,grad} = configs[tab];
+        // Etiqueta chica de la tarjeta: en alojamientos la categoría; en paradores/campings, "PARADOR · PLAYA NORTE".
+        const etiquetaTipo = (item) => {
+          if (tab==="alojamientos") return item.categoria||item.tipo;
+          if (item.tipo==="parador" || item.tipo==="camping") {
+            const playa = playasAPI.find(p=>p.id===item.categoria);
+            return playa ? `${item.tipo} · ${playa.nombre}` : item.tipo;
+          }
+          return item.tipo;
+        };
 
         const baseData =
           tab==="atractivos" && atrFilter==="Eventos"  ? eventosAPI :
           tab==="atractivos" && atrFilter!=="Todos"    ? data.filter(i=>i.cat===atrFilter) :
-          tab==="alojamientos" && alojFilter.length>0 ? data.filter(i=>alojFilter.every(f=>i.filtros?.includes(f))) :
+          tab==="alojamientos" && alojFilter!=="Todos" ? data.filter(i=>quitarAcentos(i.categoria)===quitarAcentos(alojFilter)) :
+          tab==="playas" && playaFilter==="Paradores" ? paradoresAPI.filter(i=>i.tipo==="parador") :
+          tab==="playas" && playaFilter==="Campings"  ? paradoresAPI.filter(i=>i.tipo==="camping") :
           tab==="playas" && playaFilter!=="Todas"      ? data.filter(i=>(i.tags||[]).includes(playaFilter)) :
           tab==="gastronomia" && gastroFilter!=="Todo" ? data.filter(i=>(i.tags||[]).some(t=>t.normalize("NFC")===gastroFilter.normalize("NFC"))) :
           data;
@@ -405,27 +421,7 @@ const { data: eventosAPI } = useEventos();
                 </div>
                 {tab==="gastronomia" && (
                   <div style={{display:"flex",gap:6,flexShrink:0}}>
-                    <button onClick={()=>{
-                      const pool = gastroFilter!=="Todo"
-                        ? DATA.restaurantes.filter(i=>(i.tags||[]).some(t=>t.normalize("NFC")===gastroFilter.normalize("NFC")))
-                        : DATA.restaurantes;
-                      if(!pool.length) return;
-                      setRuletaModal(true);
-                      setRuletaItem(null);
-                      setRuletaSpinning(true);
-                      let count=0;
-                      const interval=setInterval(()=>{
-                        setRuletaDisplay(pool[Math.floor(Math.random()*pool.length)]);
-                        count++;
-                        if(count>22){
-                          clearInterval(interval);
-                          const elegido=pool[Math.floor(Math.random()*pool.length)];
-                          setRuletaDisplay(elegido);
-                          setRuletaItem(elegido);
-                          setRuletaSpinning(false);
-                        }
-                      },280);
-                    }} style={{flexShrink:0,background:"rgba(255,255,255,0.95)",border:"none",borderRadius:20,padding:"5px 11px",display:"flex",alignItems:"center",gap:5,cursor:"pointer",fontFamily:"inherit",boxShadow:"0 2px 8px rgba(0,0,0,0.15)"}}>
+                    <button onClick={()=>setRuletaModal(true)} style={{flexShrink:0,background:"rgba(255,255,255,0.95)",border:"none",borderRadius:20,padding:"5px 11px",display:"flex",alignItems:"center",gap:5,cursor:"pointer",fontFamily:"inherit",boxShadow:"0 2px 8px rgba(0,0,0,0.15)"}}>
                       <span style={{fontSize:14}}>🎰</span>
                       <span style={{fontSize:10,fontWeight:800,color:"#E65100"}}>Ruleta</span>
                     </button>
@@ -446,25 +442,24 @@ const { data: eventosAPI } = useEventos();
               )}
               {tab==="alojamientos" && (
                 <div style={{display:"flex",gap:7,paddingBottom:10,overflowX:"auto",scrollbarWidth:"none"}}>
-                  <button onClick={()=>setAlojFilter([])} style={{flexShrink:0,padding:"6px 14px",fontSize:11,fontWeight:700,borderRadius:20,cursor:"pointer",fontFamily:"inherit",background:alojFilter.length===0?"rgba(255,255,255,0.97)":"rgba(255,255,255,0.15)",color:alojFilter.length===0?"#2E7D32":"rgba(255,255,255,0.9)",border:"none",transition:"all .2s"}}>Todos</button>
                   {[
-                    {id:"mascotas",label:"🐾 Mascotas"},
-                    {id:"casaSola",label:"🏠 Casa sola"},
-                    {id:"hotel",label:"🏨 Hotel"},
-                    {id:"depto",label:"🏢 Dpto/Duplex"},
-                    {id:"sinEscaleras",label:"♿ Sin escaleras"},
-                    {id:"conEscaleras",label:"🪜 Con escaleras"},
+                    {id:"Todos",label:"Todos"},
+                    {id:"Hotel",label:"🏨 Hotel"},
+                    {id:"Departamento",label:"🏢 Departamento"},
+                    {id:"Casa",label:"🏠 Casa"},
+                    {id:"Cabaña",label:"🛖 Cabaña"},
+                    {id:"Bungalow",label:"🏕️ Bungalow"},
                   ].map(f=>{
-                    const active = alojFilter.includes(f.id);
+                    const active = alojFilter===f.id;
                     return (
-                      <button key={f.id} onClick={()=>setAlojFilter(prev=>active?prev.filter(x=>x!==f.id):[...prev,f.id])} style={{flexShrink:0,padding:"6px 14px",fontSize:11,fontWeight:700,borderRadius:20,cursor:"pointer",fontFamily:"inherit",background:active?"rgba(255,255,255,0.97)":"rgba(255,255,255,0.15)",color:active?"#2E7D32":"rgba(255,255,255,0.9)",border:active?"2px solid rgba(46,125,50,0.4)":"none",transition:"all .2s"}}>{f.label}</button>
+                      <button key={f.id} onClick={()=>setAlojFilter(f.id)} style={{flexShrink:0,padding:"6px 14px",fontSize:11,fontWeight:700,borderRadius:20,cursor:"pointer",fontFamily:"inherit",background:active?"rgba(255,255,255,0.97)":"rgba(255,255,255,0.15)",color:active?"#2E7D32":"rgba(255,255,255,0.9)",border:"none",transition:"all .2s"}}>{f.label}</button>
                     );
                   })}
                 </div>
               )}
               {tab==="playas" && (
                 <div style={{display:"flex",gap:7,paddingBottom:10,overflowX:"auto",scrollbarWidth:"none"}}>
-                  {["Todas","Familia","Jóvenes","Tranquila","Parrillas"].map(c=>(
+                  {["Todas","Familia","Jóvenes","Tranquila","Parrillas","Paradores","Campings"].map(c=>(
                     <button key={c} onClick={()=>setPlayaFilter(c)} style={{flexShrink:0,padding:"6px 14px",fontSize:11,fontWeight:700,borderRadius:20,cursor:"pointer",fontFamily:"inherit",background:playaFilter===c?"rgba(255,255,255,0.97)":"rgba(255,255,255,0.15)",color:playaFilter===c?"#1E88E5":"rgba(255,255,255,0.9)",border:"none",transition:"all .2s"}}>{c}</button>
                   ))}
                 </div>
@@ -498,7 +493,7 @@ const { data: eventosAPI } = useEventos();
               )}
               {displayData.map((item,idx)=>{
                 const color = item.color||"#1E88E5";
-                const coords = LUGAR_COORDS[item.nombre||item.titulo] || (item.lugar ? LUGAR_COORDS[item.lugar] : null);
+                const coords = coordsDe(item) || (item.lugar ? LUGAR_COORDS[item.lugar] : null);
                 const distKm = coords && userPos ? calcKm(userPos.lat, userPos.lng, coords.lat, coords.lng) : null;
                 const distLabel = distKm !== null ? (distKm < 1 ? `${Math.round(distKm*1000)} m` : `${distKm.toFixed(1)} km`) : null;
                 const estadoHorario = isAbierto(item.horario);
@@ -519,7 +514,6 @@ const { data: eventosAPI } = useEventos();
                       <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:6,marginBottom:3}}>
                         <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:16,fontWeight:800,color:"#1a1a2e",lineHeight:1.2,flex:1,minWidth:0}}>{item.nombre||item.titulo}</div>
                         <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4,flexShrink:0}}>
-                          {item.rating && <div style={{fontSize:12,fontWeight:700,color:"#F9A825",display:"flex",alignItems:"center",gap:1}}>★ {item.rating}</div>}
                           {distLabel && coords && (
                             <div onClick={e=>{e.stopPropagation();abrirMaps(coords.lat,coords.lng,item.nombre||item.titulo||item.lugar);}}
                               style={{fontSize:9,fontWeight:700,color:"#fff",background:"#E53935",borderRadius:20,padding:"2px 8px",cursor:"pointer",whiteSpace:"nowrap"}}>
@@ -528,7 +522,7 @@ const { data: eventosAPI } = useEventos();
                           )}
                         </div>
                       </div>
-                      {item.tipo && <div style={{fontSize:9,color,fontWeight:700,letterSpacing:1.2,textTransform:"uppercase",marginBottom:4}}>{item.tipo}</div>}
+                      {etiquetaTipo(item) && <div style={{fontSize:9,color,fontWeight:700,letterSpacing:1.2,textTransform:"uppercase",marginBottom:4}}>{etiquetaTipo(item)}</div>}
                       {item.mes && !item.tipo && <div style={{fontSize:9,color,fontWeight:700,letterSpacing:1,textTransform:"uppercase",marginBottom:4}}>{item.dia} {item.mes}</div>}
                       {item.horario && item.horario!=="—" && (
                         <div style={{fontSize:10,color:"#aaa",marginBottom:5,display:"flex",alignItems:"center",gap:4}}>
@@ -539,6 +533,7 @@ const { data: eventosAPI } = useEventos();
                         {(item.tags||[]).slice(0,3).map(t=>(
                           <span key={t} style={{fontSize:9,fontWeight:600,padding:"2px 8px",borderRadius:20,background:`${color}18`,color}}>{t}</span>
                         ))}
+                        {item.promo && <span style={{fontSize:9,fontWeight:800,padding:"2px 8px",borderRadius:20,background:"#FFE0B2",color:"#BF360C"}}>🔥 {item.promo}</span>}
                         {item.lugar && <span style={{fontSize:9,color:"#bbb"}}>📍 {item.lugar}</span>}
                       </div>
                       <p style={{fontSize:11,color:"#888",lineHeight:1.55,margin:0,display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{item.desc}</p>
@@ -547,14 +542,12 @@ const { data: eventosAPI } = useEventos();
                 );
               })}
 
-              {/* Acceso a Relax — solo en Playas */}
+              {/* Acceso a Relax — solo en Playas: pestaña metida en la esquina, sólo asoma la olita */}
               {tab==="playas" && (
-                <div onClick={()=>go("relax")} style={{margin:"4px 0 8px",background:"linear-gradient(135deg,#006064,#00ACC1)",borderRadius:20,padding:"16px 18px",display:"flex",alignItems:"center",gap:12,cursor:"pointer",boxShadow:"0 6px 20px rgba(0,150,136,0.28)"}}>
-                  <span style={{fontSize:26}}>🌊</span>
-                  <div style={{flex:1}}>
-                    <div style={{fontSize:14,fontWeight:800,color:"#fff",letterSpacing:-0.3}}>Modo Relax Colón</div>
-                    <div style={{fontSize:11,color:"rgba(255,255,255,0.75)",marginTop:2}}>Sonidos del río · Respiración guiada →</div>
-                  </div>
+                <div onClick={()=>go("relax")} role="button" aria-label="Modo Relax Colón"
+                  style={{position:"fixed",bottom:92,right:"max(0px, calc(50% - 215px))",zIndex:40,display:"flex",alignItems:"center",gap:8,padding:"10px 14px 10px 12px",background:"linear-gradient(135deg,#006064,#00ACC1)",borderRadius:"18px 0 0 18px",boxShadow:"-3px 3px 14px rgba(0,96,100,0.35)",cursor:"pointer",transform:"translateX(calc(100% - 42px))"}}>
+                  <span style={{fontSize:22,lineHeight:1}}>🌊</span>
+                  <span style={{fontSize:12,fontWeight:800,color:"#fff",whiteSpace:"nowrap"}}>Modo Relax</span>
                 </div>
               )}
             </div>
@@ -563,7 +556,7 @@ const { data: eventosAPI } = useEventos();
       })()}
 
       {/* ══ MAPA ══ */}
-      {tab==="mapa" && <MapView mapFilter={mapFilter} setMapFilter={setMapFilter} mapCats={MAPA_CATS} lugares={armarLugaresMapa(lugaresAPI)} onVer={openDetail} go={go} />}
+      {tab==="mapa" && <Suspense fallback={<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",color:"#aaa",fontSize:13}}>Cargando mapa…</div>}><MapView mapFilter={mapFilter} setMapFilter={setMapFilter} mapCats={MAPA_CATS} lugares={armarLugaresMapa(lugaresAPI)} onVer={openDetail} go={go} /></Suspense>}
 
       {/* ══ SERVICIOS ══ */}
       {tab==="servicios" && <ServiciosPage go={go}/>}
@@ -665,79 +658,14 @@ const { data: eventosAPI } = useEventos();
 
       {/* ══ NOTIFICACIÓN JUEGOS (stay 20min) ══ */}
 
-      {/* MODAL RULETA GASTRONÓMICA */}
+      {/* MODAL RULETA GASTRONÓMICA — usa los mismos lugares que la lista de Gastronomía */}
       {ruletaModal && (
-        <div style={{position:"fixed",inset:0,zIndex:9998,background:"rgba(0,0,0,0.7)",display:"flex",alignItems:"center",justifyContent:"center",padding:"0 20px"}} onClick={()=>{if(!ruletaSpinning){setRuletaModal(false);setRuletaItem(null);}}}>
-          <div style={{background:"#fff",borderRadius:28,width:"100%",maxWidth:380,overflow:"hidden",boxShadow:"0 20px 60px rgba(0,0,0,0.4)"}} onClick={e=>e.stopPropagation()}>
-            {/* Header naranja */}
-            <div style={{background:"linear-gradient(135deg,#F9A825,#E65100)",padding:"24px 20px 20px",textAlign:"center",position:"relative"}}>
-              <div style={{fontSize:48,marginBottom:8}}>{ruletaSpinning?"🎰":ruletaDisplay?.emoji||"🍽️"}</div>
-              <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,fontWeight:700,color:"rgba(255,255,255,0.8)",letterSpacing:2,textTransform:"uppercase",marginBottom:6}}>
-                {ruletaSpinning ? "Eligiendo..." : "¡Tu lugar para comer!"}
-              </div>
-              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:26,fontWeight:700,color:"#fff",lineHeight:1.2,minHeight:36,transition:"all 0.1s"}}>
-                {ruletaDisplay?.nombre || "..."}
-              </div>
-              {!ruletaSpinning && gastroFilter!=="Todo" && (
-                <div style={{marginTop:6,display:"inline-block",background:"rgba(255,255,255,0.2)",borderRadius:20,padding:"3px 12px",fontSize:11,color:"#fff",fontWeight:600}}>Filtro: {gastroFilter}</div>
-              )}
-            </div>
-
-            {/* Info del lugar (solo cuando terminó de girar) */}
-            {!ruletaSpinning && ruletaItem && (
-              <div style={{padding:"18px 20px 20px"}}>
-                <div style={{fontSize:13,color:"#555",lineHeight:1.7,marginBottom:14}}>{ruletaItem.desc}</div>
-                {ruletaItem.info?.length > 0 && (
-                  <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:16}}>
-                    {ruletaItem.info.slice(0,4).map((inf,i)=>(
-                      <div key={i} style={{display:"flex",alignItems:"center",gap:8,fontSize:12,color:"#555"}}>
-                        <div style={{width:6,height:6,borderRadius:"50%",background:"#F9A825",flexShrink:0}}/>
-                        {inf}
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <div style={{display:"flex",gap:8}}>
-                  <button onClick={()=>{setRuletaModal(false);openDetail(ruletaItem);}} style={{flex:1,background:"linear-gradient(135deg,#F9A825,#E65100)",border:"none",borderRadius:14,padding:"13px",fontSize:13,fontWeight:700,color:"#fff",cursor:"pointer",fontFamily:"inherit"}}>
-                    Ver más info
-                  </button>
-                  <button onClick={()=>{
-                    const pool = gastroFilter!=="Todo"
-                      ? DATA.restaurantes.filter(i=>(i.tags||[]).some(t=>t.normalize("NFC")===gastroFilter.normalize("NFC")))
-                      : DATA.restaurantes;
-                    if(!pool.length) return;
-                    setRuletaItem(null);
-                    setRuletaSpinning(true);
-                    let count=0;
-                    const interval=setInterval(()=>{
-                      setRuletaDisplay(pool[Math.floor(Math.random()*pool.length)]);
-                      count++;
-                      if(count>18){
-                        clearInterval(interval);
-                        const elegido=pool[Math.floor(Math.random()*pool.length)];
-                        setRuletaDisplay(elegido);
-                        setRuletaItem(elegido);
-                        setRuletaSpinning(false);
-                      }
-                    },120);
-                  }} style={{background:"#f5f5f5",border:"none",borderRadius:14,padding:"13px 16px",fontSize:20,cursor:"pointer"}}>
-                    🔄
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {ruletaSpinning && (
-              <div style={{padding:"20px",textAlign:"center",color:"#aaa",fontSize:12}}>Girando la ruleta...</div>
-            )}
-
-            {!ruletaSpinning && (
-              <button onClick={()=>{setRuletaModal(false);setRuletaItem(null);}} style={{width:"100%",background:"none",border:"none",borderTop:"1px solid #f0f0f0",padding:"14px",fontSize:13,color:"#aaa",cursor:"pointer",fontFamily:"inherit"}}>
-                Cerrar
-              </button>
-            )}
-          </div>
-        </div>
+        <RuletaModal
+          lugares={restaurantesAPI.length ? restaurantesAPI : DATA.restaurantes}
+          etiquetaInicial={gastroFilter}
+          onClose={()=>setRuletaModal(false)}
+          onVer={openDetail}
+        />
       )}
 
       {juegoNotifVisible && (

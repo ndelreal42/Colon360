@@ -10,6 +10,15 @@ const norm = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-
 const COORDS_INDEX = {};
 Object.entries(LUGAR_COORDS).forEach(([nombre, c]) => { COORDS_INDEX[norm(nombre)] = c; });
 
+// Coordenadas de un lugar: primero las de la base de datos (lat/lng cargadas desde el panel); si no tiene, la lista vieja por nombre.
+export function coordsDe(l) {
+  if (l && l.lat !== null && l.lat !== undefined && l.lat !== "" && l.lng !== null && l.lng !== undefined && l.lng !== "") {
+    const lat = Number(l.lat), lng = Number(l.lng);
+    if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng };
+  }
+  return COORDS_INDEX[norm(l && (l.nombre || l.titulo))] || null;
+}
+
 export function catDeLugar(l) {
   const tipo = norm(l.tipo);
   if (tipo === "playa") return "Playa";
@@ -30,7 +39,7 @@ export function armarLugaresMapa(lugares) {
       .map((l) => {
         const cat = catDeLugar(l);
         if (!cat) return null;
-        const c = COORDS_INDEX[norm(l.nombre)];
+        const c = coordsDe(l);
         return { id: l.id, label: l.nombre, cat, lat: c?.lat ?? null, lng: c?.lng ?? null, address: l.dir || "", item: l };
       })
       .filter(Boolean);

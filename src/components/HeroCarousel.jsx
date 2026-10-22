@@ -8,6 +8,14 @@ const FOTOS = import.meta.glob("../assets/carousel/*.{jpg,jpeg,png,webp,JPG,JPEG
 
 const INTERVALO_MS = 5000;
 
+// Textos del carrusel, en el mismo orden que las fotos (01-..., 02-..., 03-...). SON DE EJEMPLO.
+// Si hay más fotos que textos, las que sobran se muestran sin texto.
+const TEXTOS = [
+  { etiqueta: "HOY", titulo: "Aprovechá la promo 2x1 en el bar" },
+  { etiqueta: "ANDÁ A", titulo: "El Molino Aventura" },
+  { etiqueta: "ESTA NOCHE", titulo: "Show en vivo en Campo Adentro" },
+];
+
 export default function HeroCarousel() {
   const slides = useMemo(() => {
     const lista = Object.keys(FOTOS).sort().map(k => FOTOS[k]);
@@ -59,9 +67,15 @@ export default function HeroCarousel() {
         {slides.map((src, i) => (
           <div key={i} style={{flex:"0 0 100%", height:"100%", scrollSnapAlign:"start", position:"relative"}}>
             <img
-              src={src} alt="Colón" draggable={false}
+              src={src} alt={TEXTOS[i] ? TEXTOS[i].titulo : "Colón"} draggable={false}
               style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",objectPosition:"center 35%",filter:"brightness(0.48) saturate(0.8)"}}
             />
+            {slides.length > 1 && TEXTOS[i] && (
+              <div style={{position:"absolute",left:18,right:18,bottom:34,zIndex:2,pointerEvents:"none"}}>
+                <div style={{display:"inline-block",background:"#F9A825",color:"#1a1a2e",fontSize:10,fontWeight:800,letterSpacing:1.5,padding:"4px 10px",borderRadius:20,marginBottom:8}}>{TEXTOS[i].etiqueta}</div>
+                <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:22,fontWeight:800,color:"#fff",lineHeight:1.15,textShadow:"0 2px 14px rgba(0,0,0,0.6)",maxWidth:"92%"}}>{TEXTOS[i].titulo}</div>
+              </div>
+            )}
           </div>
         ))}
       </div>

@@ -96,15 +96,19 @@ const TABLAS = {
     campos: [
       {name:"id", label:"ID (único, sin espacios)"},
       {name:"nombre", label:"Nombre"},
-      {name:"tipo", label:"Tipo (playa, restaurante, hotel, etc.)"},
-      {name:"categoria", label:"Categoría"},
+      {name:"tipo", label:"Tipo (playa, restaurante, hotel, parador, camping, etc.)"},
+      {name:"categoria", label:"Categoría (hotel: Hotel/Departamento/Casa/Cabaña/Bungalow · parador o camping: ID de su playa, ej: p1)"},
       {name:"emoji", label:"Emoji"},
       {name:"rating", label:"Rating (ej: 4.8)"},
       {name:"color", label:"Color (código hex, ej: #2E7D32)"},
       {name:"tags", label:"Tags (separados por coma)"},
       {name:"horario", label:"Horario"},
       {name:"tel", label:"Teléfono"},
+      {name:"whatsapp", label:"WhatsApp para consultas (ej: 5493447123456)"},
+      {name:"promo", label:"Promo destacada (ej: Daiquiri 2x1) — se muestra en paradores"},
+      {name:"carta", label:"Link de la carta / menú (ej: https://...) — para lugares de comer"},
       {name:"dir", label:"Dirección"},
+      {name:"ubicacion", label:"Ubicación en el mapa — pegá el link de Google Maps (el largo, de la barra del navegador) o escribí: latitud, longitud", virtual:true},
       {name:"desc", label:"Descripción", tipo:"textarea"},
       {name:"info", label:"Info extra (separados por coma)"},
     ],
@@ -236,6 +240,7 @@ function openForm(row = null) {
 
     const isJson = cfg.json.includes(campo.name);
     let value = row ? row[campo.name] : "";
+    if (campo.name === "ubicacion") value = (row && row.lat !== null && row.lat !== undefined && row.lat !== "" && row.lng !== null && row.lng !== undefined && row.lng !== "") ? `${row.lat}, ${row.lng}` : "";
     if (isJson && Array.isArray(value)) value = value.join(", ");
 
     const input = document.createElement(campo.tipo === "textarea" ? "textarea" : "input");
@@ -251,16 +256,60 @@ function closeForm() {
   document.getElementById("overlay").style.display = "none";
 }
 
+// Entiende: link largo de Google Maps (…@-32.22,-58.14… / …!3d-32.22!4d-58.14… / …?q=-32.22,-58.14) o texto "-32.2257, -58.1417".
+function parsearUbicacion(texto) {
+  const t = decodeURIComponent(texto.trim());
+  const num = "(-?\\d{1,3}\\.\\d+)";
+  const patrones = [
+    new RegExp("!3d" + num + "!4d" + num),                 // pin exacto del lugar
+    new RegExp("@" + num + "," + num),                      // centro de la vista
+    new RegExp("[?&](?:q|ll|query|destination)=" + num + "[,+ ]\\s*" + num),
+    new RegExp("^" + num + "\\s*[,; ]\\s*" + num + "$"),   // sólo números
+  ];
+  for (const re of patrones) {
+    const m = t.match(re);
+    if (m) {
+      const lat = parseFloat(m[1]), lng = parseFloat(m[2]);
+      if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return { error: "Esas coordenadas no son válidas." };
+      return { lat, lng };
+    }
+  }
+  if (/goo\.gl|maps\.app/i.test(t)) {
+    return { error: "Ese es un link corto y no trae las coordenadas. Abrilo en el navegador y copiá el link largo de la barra de direcciones, o en Google Maps mantené apretado el punto y copiá los dos números de arriba." };
+  }
+  return { error: "No pude leer la ubicación. Pegá el link largo de Google Maps o escribí: latitud, longitud (ej: -32.2257, -58.1417)." };
+}
+
+// Colón está cerca de (-32.22, -58.14). Sirve para detectar números dados vuelta o de otra ciudad.
+function estaCercaDeColon(lat, lng) {
+  return Math.abs(lat - (-32.22)) < 0.6 && Math.abs(lng - (-58.14)) < 0.6;
+}
+
 async function saveRow() {
   const cfg = TABLAS[tablaActual];
   const body = {};
   cfg.campos.forEach((campo) => {
+    if (campo.virtual) return; // "ubicacion" se traduce a lat/lng más abajo
     let val = document.getElementById(`f-${campo.name}`).value;
     if (cfg.json.includes(campo.name)) {
       val = val.split(",").map((s) => s.trim()).filter(Boolean);
     }
     body[campo.name] = val;
   });
+
+  // Ubicación: se convierte el link de Google Maps (o "lat, lng") en dos números.
+  const campoUbic = document.getElementById("f-ubicacion");
+  if (campoUbic) {
+    const texto = campoUbic.value.trim();
+    if (!texto) {
+      body.lat = null; body.lng = null;
+    } else {
+      const u = parsearUbicacion(texto);
+      if (u.error) { mostrarStatus(u.error); return; }
+      if (!estaCercaDeColon(u.lat, u.lng) && !confirm("Esa ubicación queda lejos de Colón (" + u.lat + ", " + u.lng + "). ¿Seguro que es correcta?")) return;
+      body.lat = u.lat; body.lng = u.lng;
+    }
+  }
 
   const url = editandoId
     ? `${API_URL}/api/${tablaActual}/${editandoId}`

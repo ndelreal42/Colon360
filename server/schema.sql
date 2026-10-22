@@ -9,6 +9,11 @@ CREATE TABLE IF NOT EXISTS lugares (
   tags     TEXT,
   horario  TEXT,
   tel      TEXT,
+  whatsapp TEXT,
+  promo    TEXT,
+  carta    TEXT,
+  lat      REAL,
+  lng      REAL,
   dir      TEXT,
   desc     TEXT,
   info     TEXT
