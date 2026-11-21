@@ -1,12 +1,46 @@
 import { handleRio } from './rio.js';
 
+// Cada tabla: columnas permitidas (solo esas se guardan), orden, campos JSON y filtros.
+// private: true  -> también el GET pide la clave de admin (datos de clientes, no son públicos).
+// visible: true  -> el GET público solo devuelve filas con visible = 1 (el panel, con clave, ve todas).
 const TABLES = {
-  lugares:     { table: 'lugares',         order: 'tipo, nombre',     json: ['tags', 'info'],       filterable: ['tipo', 'categoria'] },
-  eventos:     { table: 'eventos',         order: 'mes, dia',         json: ['tags', 'info'],       filterable: ['dia', 'mes'] },
-  servicios:   { table: 'servicios',       order: 'cat, nombre',      json: [],                     filterable: ['cat'] },
-  mapa:        { table: 'mapa_marcadores', order: 'cat, label',       json: [],                     filterable: ['cat'] },
-  actividades: { table: 'actividades',     order: 'tema, franja',     json: [],                     filterable: ['tema', 'franja'] },
-  juegos:      { table: 'juegos',          order: 'categoria, nombre',json: ['instrucciones','datos'], filterable: ['categoria'] },
+  lugares: {
+    table: 'lugares', order: 'tipo, nombre', json: ['tags', 'info'], filterable: ['tipo', 'categoria'], visible: true,
+    cols: ['id', 'nombre', 'tipo', 'categoria', 'emoji', 'rating', 'color', 'tags', 'horario', 'tel', 'whatsapp', 'promo', 'carta', 'lat', 'lng', 'dir', 'desc', 'info', 'visible', 'cliente_id'],
+  },
+  eventos: {
+    table: 'eventos', order: 'mes, dia', json: ['tags', 'info'], filterable: ['dia', 'mes'],
+    cols: ['id', 'titulo', 'dia', 'mes', 'emoji', 'color', 'lugar', 'horario', 'tel', 'desc', 'info', 'tags'],
+  },
+  servicios: {
+    table: 'servicios', order: 'cat, nombre', json: [], filterable: ['cat'],
+    cols: ['id', 'nombre', 'cat', 'emoji', 'info', 'horario', 'tel', 'color', 'urgente'],
+  },
+  mapa: {
+    table: 'mapa_marcadores', order: 'cat, label', json: [], filterable: ['cat'],
+    cols: ['id', 'label', 'cat', 'x', 'y'],
+  },
+  actividades: {
+    table: 'actividades', order: 'tema, franja', json: [], filterable: ['tema', 'franja'],
+    cols: ['id', 'tema', 'franja', 'emoji', 'titulo', 'desc', 'color'],
+  },
+  juegos: {
+    table: 'juegos', order: 'categoria, nombre', json: ['instrucciones', 'datos'], filterable: ['categoria'],
+    cols: ['id', 'categoria', 'nombre', 'desc', 'emoji', 'duracion', 'instrucciones', 'datos'],
+  },
+  // ---- Panel admin (privadas) ----
+  clientes: {
+    table: 'clientes', order: 'nombre', json: [], filterable: ['estado', 'cat'], private: true,
+    cols: ['id', 'nombre', 'cat', 'rubro', 'contacto', 'whatsapp', 'estado', 'plan', 'precio', 'vence', 'desde', 'ultimo_pago', 'origen', 'notas', 'visible'],
+  },
+  pendientes: {
+    table: 'pendientes', order: 'recibido DESC', json: ['datos', 'cambios'], filterable: ['tipo', 'origen'], private: true,
+    cols: ['id', 'tipo', 'origen', 'recibido', 'datos', 'lugar_id', 'cambios', 'mensaje'],
+  },
+  notificaciones: {
+    table: 'notificaciones', order: 'fecha, hora', json: [], filterable: ['estado', 'tema'], private: true,
+    cols: ['id', 'estado', 'tema', 'cliente_id', 'titulo', 'texto', 'abre', 'cuando', 'fecha', 'hora', 'dia_semana', 'creada'],
+  },
 };
 
 function parseJsonFields(row, fields) {
@@ -22,40 +56,64 @@ function parseJsonFields(row, fields) {
 function stringifyJsonFields(body, fields) {
   const out = { ...body };
   for (const f of fields) {
-    if (out[f] !== undefined && typeof out[f] !== 'string') {
+    if (out[f] !== undefined && out[f] !== null && typeof out[f] !== 'string') {
       out[f] = JSON.stringify(out[f]);
     }
   }
   return out;
 }
 
-async function listHandler(env, key, searchParams) {
+// Solo deja pasar columnas conocidas (evita que un nombre raro termine dentro del SQL).
+function soloColumnas(body, cfg) {
+  const out = {};
+  for (const c of cfg.cols) if (Object.prototype.hasOwnProperty.call(body, c)) out[c] = body[c];
+  return out;
+}
+
+const faltaColumna = (err) => /no such column/i.test(String(err && err.message));
+
+async function listHandler(env, key, searchParams, admin) {
   const cfg = TABLES[key];
-  let sql = `SELECT * FROM ${cfg.table}`;
+  const where = [];
   const binds = [];
   const filterParam = cfg.filterable.find((f) => searchParams.has(f));
   if (filterParam) {
-    sql += ` WHERE ${filterParam} = ?`;
+    where.push(`${filterParam} = ?`);
     binds.push(searchParams.get(filterParam));
   }
-  sql += ` ORDER BY ${cfg.order}`;
-  const { results } = await env.DB.prepare(sql).bind(...binds).all();
+  const conVisible = cfg.visible && !admin;
+  const armar = (filtrarVisible) => {
+    const w = filtrarVisible ? [...where, 'COALESCE(visible, 1) = 1'] : where;
+    return `SELECT * FROM ${cfg.table}${w.length ? ' WHERE ' + w.join(' AND ') : ''} ORDER BY ${cfg.order}`;
+  };
+  let results;
+  try {
+    ({ results } = await env.DB.prepare(armar(conVisible)).bind(...binds).all());
+  } catch (err) {
+    // Si todavía no se corrió la migración (no existe "visible"), se responde como antes.
+    if (!conVisible || !faltaColumna(err)) throw err;
+    ({ results } = await env.DB.prepare(armar(false)).bind(...binds).all());
+  }
   return results.map((row) => parseJsonFields(row, cfg.json));
 }
 
-async function byIdHandler(env, id) {
+async function byIdHandler(env, id, admin) {
   const row = await env.DB.prepare('SELECT * FROM lugares WHERE id = ?').bind(id).first();
-  return row ? parseJsonFields(row, ['tags', 'info']) : null;
+  if (!row) return null;
+  if (!admin && row.visible !== undefined && row.visible !== null && Number(row.visible) === 0) return null;
+  return parseJsonFields(row, ['tags', 'info']);
 }
 
 function isAdmin(request, env) {
-  return request.headers.get('X-Admin-Key') === env.ADMIN_KEY;
+  const k = request.headers.get('X-Admin-Key');
+  return !!k && !!env.ADMIN_KEY && k === env.ADMIN_KEY;
 }
 
 async function createRow(env, key, body) {
   const cfg = TABLES[key];
-  const clean = stringifyJsonFields(body, cfg.json);
+  const clean = soloColumnas(stringifyJsonFields(body, cfg.json), cfg);
   const columns = Object.keys(clean);
+  if (!columns.length) throw new Error('Sin datos para guardar');
   const placeholders = columns.map(() => '?').join(', ');
   const values = columns.map((c) => clean[c]);
   const sql = `INSERT INTO ${cfg.table} (${columns.join(', ')}) VALUES (${placeholders})`;
@@ -65,8 +123,10 @@ async function createRow(env, key, body) {
 
 async function updateRow(env, key, id, body) {
   const cfg = TABLES[key];
-  const clean = stringifyJsonFields(body, cfg.json);
+  const clean = soloColumnas(stringifyJsonFields(body, cfg.json), cfg);
+  delete clean.id; // el ID no se cambia
   const columns = Object.keys(clean);
+  if (!columns.length) return { ok: true };
   const setClause = columns.map((c) => `${c} = ?`).join(', ');
   const values = columns.map((c) => clean[c]);
   const sql = `UPDATE ${cfg.table} SET ${setClause} WHERE id = ?`;
@@ -91,66 +151,58 @@ export default {
       'Access-Control-Allow-Headers': 'Content-Type, X-Admin-Key',
       'Content-Type': 'application/json; charset=utf-8',
     };
+    const json = (data, status = 200) => new Response(JSON.stringify(data), { status, headers });
 
     if (request.method === 'OPTIONS') return new Response(null, { headers });
 
     try {
+      const admin = isAdmin(request, env);
+
+      // GET /api/admin/ping  -> el panel prueba la clave sin tocar datos
+      if (pathname === '/api/admin/ping') {
+        return admin ? json({ ok: true }) : json({ error: 'No autorizado' }, 401);
+      }
+
       // GET /api/rio  (altura del río Uruguay en Colón, desde Prefectura)
       if (pathname === '/api/rio' && request.method === 'GET') {
-        return await handleRio(searchParams, headers, isAdmin(request, env));
+        return await handleRio(searchParams, headers, admin);
       }
 
       // GET /api/lugares/:id
       const lugarById = pathname.match(/^\/api\/lugares\/([^/]+)$/);
       if (lugarById && request.method === 'GET') {
-        const row = await byIdHandler(env, lugarById[1]);
-        if (!row) return new Response(JSON.stringify({ error: 'Not found' }), { status: 404, headers });
-        return new Response(JSON.stringify(row), { headers });
+        const row = await byIdHandler(env, decodeURIComponent(lugarById[1]), admin);
+        if (!row) return json({ error: 'Not found' }, 404);
+        return json(row);
       }
-
-      const routeMap = {
-        lugares: 'lugares', eventos: 'eventos', servicios: 'servicios',
-        mapa: 'mapa', actividades: 'actividades', juegos: 'juegos',
-      };
 
       // /api/<tabla>  o  /api/<tabla>/:id
       const match = pathname.match(/^\/api\/([^/]+)(?:\/([^/]+))?$/);
       if (match) {
-        const [, tableKey, id] = match;
-        const key = routeMap[tableKey];
+        const [, key, rawId] = match;
+        const id = rawId ? decodeURIComponent(rawId) : undefined;
+        const cfg = Object.prototype.hasOwnProperty.call(TABLES, key) ? TABLES[key] : null;
 
-        if (key) {
-          if (request.method === 'GET') {
-            const data = await listHandler(env, key, searchParams);
-            return new Response(JSON.stringify(data), { headers });
+        if (cfg) {
+          if (request.method === 'GET' && !cfg.private) {
+            return json(await listHandler(env, key, searchParams, admin));
           }
 
-          if (!isAdmin(request, env)) {
-            return new Response(JSON.stringify({ error: 'No autorizado' }), { status: 401, headers });
-          }
+          if (!admin) return json({ error: 'No autorizado' }, 401);
 
-          if (request.method === 'POST') {
-            const body = await request.json();
-            const result = await createRow(env, key, body);
-            return new Response(JSON.stringify(result), { headers });
-          }
+          if (request.method === 'GET') return json(await listHandler(env, key, searchParams, true));
 
-          if (request.method === 'PUT' && id) {
-            const body = await request.json();
-            const result = await updateRow(env, key, id, body);
-            return new Response(JSON.stringify(result), { headers });
-          }
+          if (request.method === 'POST') return json(await createRow(env, key, await request.json()));
 
-          if (request.method === 'DELETE' && id) {
-            const result = await deleteRow(env, key, id);
-            return new Response(JSON.stringify(result), { headers });
-          }
+          if (request.method === 'PUT' && id) return json(await updateRow(env, key, id, await request.json()));
+
+          if (request.method === 'DELETE' && id) return json(await deleteRow(env, key, id));
         }
       }
 
-      return new Response(JSON.stringify({ error: 'Not found', path: pathname }), { status: 404, headers });
+      return json({ error: 'Not found', path: pathname }, 404);
     } catch (err) {
-      return new Response(JSON.stringify({ error: 'Internal server error', message: err.message }), { status: 500, headers });
+      return json({ error: 'Internal server error', message: err.message }, 500);
     }
   },
 };
