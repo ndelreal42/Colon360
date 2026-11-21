@@ -42,6 +42,14 @@ const TABLES = {
     table: 'notificaciones', order: 'fecha, hora', json: [], filterable: ['estado', 'tema'], private: true,
     cols: ['id', 'estado', 'tema', 'cliente_id', 'titulo', 'texto', 'abre', 'cuando', 'fecha', 'hora', 'dia_semana', 'creada'],
   },
+  manual: {
+    table: 'manual', order: 'orden, titulo', json: [], filterable: [], private: true,
+    cols: ['id', 'titulo', 'emoji', 'orden', 'resumen', 'cuerpo', 'actualizado'],
+  },
+  notas: {
+    table: 'notas', order: 'hecha, recordar, creada DESC', json: [], filterable: ['cliente_id'], private: true,
+    cols: ['id', 'texto', 'cliente_id', 'recordar', 'hecha', 'creada'],
+  },
 };
 
 function parseJsonFields(row, fields) {

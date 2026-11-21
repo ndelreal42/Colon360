@@ -155,6 +155,26 @@ select.in{padding:0 8px}
 #login .box{width:100%;max-width:380px;background:var(--perg);border:8px solid var(--marco);box-shadow:0 0 0 2px var(--tinta),inset 0 0 0 2px var(--tinta);border-radius:26px;padding:26px;display:flex;flex-direction:column;gap:14px;text-align:center}
 #login img{width:84px;height:84px;border-radius:22px;margin:0 auto}
 
+/* botón flotante de notas */
+.fab{position:fixed;right:22px;bottom:22px;z-index:60;display:flex;align-items:center;gap:8px;min-height:56px;padding:0 20px 0 16px;border-radius:999px;background:var(--ambar);color:var(--tinta);border:2px solid var(--tinta);box-shadow:0 6px 18px rgba(0,0,0,.3);font-weight:700;font-size:15px}
+.fab:hover{background:var(--ambar2)}
+/* manual */
+.manual{display:flex;flex-direction:column;gap:10px}
+.paso{display:flex;gap:12px;align-items:flex-start;width:100%;text-align:left;background:var(--cel);border:1.5px solid var(--linea);border-radius:14px;padding:12px 14px;font-size:14px;line-height:1.5}
+.paso .num{width:30px;height:30px;border-radius:50%;background:var(--tinta);color:var(--perg);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0}
+.paso.ok{background:var(--hoja);border-color:var(--musgo2)}
+.paso.ok .num{background:var(--musgo2)}
+.paso.ok .tx{text-decoration:line-through;color:var(--suave)}
+.tip{background:var(--amar2);border-radius:14px;padding:12px 14px;font-size:14px;line-height:1.5}
+.vin{margin:0;padding-left:22px;line-height:1.7;font-size:14px}
+/* notas */
+.nota{display:flex;gap:12px;align-items:flex-start;background:var(--blanco);border:1.5px solid var(--linea);border-radius:16px;padding:12px}
+.nota .tx{white-space:pre-line;font-size:14px;line-height:1.5}
+.nota .chk{width:32px;height:32px;border-radius:9px;border:2px solid var(--tinta);background:var(--perg);flex-shrink:0;font-weight:700;color:#FFFBF0}
+.nota.hecha .chk{background:var(--musgo2);border-color:var(--musgo2)}
+.nota.hecha .tx{text-decoration:line-through;color:var(--suave)}
+button.tag{font-family:inherit}
+
 /* ---------- celular ---------- */
 @media (max-width:820px){
   .root{padding:0}
@@ -186,6 +206,8 @@ select.in{padding:0 8px}
   .panel{padding:16px}
   .in,input,select,textarea{font-size:16px !important}
   .modal{padding:12px}
+  .fab{right:14px;bottom:calc(14px + env(safe-area-inset-bottom));min-height:54px;padding:0 18px 0 14px}
+  .content{padding-bottom:90px}
 }
 @media (max-width:430px){
   .g2{grid-template-columns:1fr}
@@ -228,6 +250,7 @@ select.in{padding:0 8px}
   </div>
 </div>
 
+<button type="button" class="fab" id="fab" data-act="nuevaNota" hidden aria-label="Nueva nota rápida"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>Nota</button>
 <div id="modal"></div>
 <div id="toast" role="status" aria-live="polite"></div>
 
@@ -324,7 +347,9 @@ const S = {
   demo: false,
   screen: (location.hash || "#inicio").slice(1),
   menu: false,
-  db: { lugares: [], eventos: [], servicios: [], clientes: [], pendientes: [], notificaciones: [] },
+  db: { lugares: [], eventos: [], servicios: [], clientes: [], pendientes: [], notificaciones: [], manual: [], notas: [] },
+  faltaManual: false,
+  man: { sel: null, edit: false, draft: null, ticks: {} },
   faltaMigracion: false,
   q: {}, f: {}, sel: {}, det: {}, d: {}, msg: {},
   ojo: localStorage.getItem("c360_ojo") !== "0",
@@ -349,17 +374,19 @@ async function api(method, path, body) {
   }
   return data;
 }
-const TABLAS = ["lugares", "eventos", "servicios", "clientes", "pendientes", "notificaciones"];
+const TABLAS = ["lugares", "eventos", "servicios", "clientes", "pendientes", "notificaciones", "manual", "notas"];
 async function cargar(tabla) {
   try {
     S.db[tabla] = (await api("GET", "/" + tabla)) || [];
   } catch (e) {
+    if (["manual", "notas"].includes(tabla) && (/no such table/i.test(e.message) || e.status === 404)) { S.faltaManual = true; S.db[tabla] = []; return; }
     if (["clientes", "pendientes", "notificaciones"].includes(tabla) && (/no such table/i.test(e.message) || e.status === 404)) { S.faltaMigracion = true; S.db[tabla] = []; return; }
     throw e;
   }
 }
 async function cargarTodo() {
   S.faltaMigracion = false;
+  S.faltaManual = false;
   await Promise.all(TABLAS.map(cargar));
   if (!S.demo && S.db.lugares.length && S.db.lugares[0].visible === undefined) S.faltaMigracion = true;
 }
@@ -455,11 +482,13 @@ const IC = {
   ojo: '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
   ojoNo: '<path d="M3 3l18 18M10.6 5.1A10 10 0 0 1 12 5c6 0 10 7 10 7a17 17 0 0 1-3.2 3.9M6.6 6.6C3.8 8.4 2 12 2 12s4 7 10 7a9.6 9.6 0 0 0 5.4-1.6M9.9 9.9a3 3 0 0 0 4.2 4.2"/>',
   wa: '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-5A8 8 0 1 1 21 12z"/>',
+  notas: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
+  manual: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/><path d="M9 7h7M9 11h5"/>',
 };
 const svg = (k, s = 18) => `<svg aria-hidden="true" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${IC[k]}</svg>`;
 const PANTALLAS = [
   ["inicio", "Inicio"], ["clientes", "Clientes"], ["fichas", "Fichas en la app"], ["eventos", "Eventos"], ["servicios", "Servicios"], ["pendientes", "Pendientes"],
-  ["notif", "Notificaciones"], ["cobros", "Cobros"], ["ajustes", "Ajustes"],
+  ["notif", "Notificaciones"], ["cobros", "Cobros"], ["notas", "Notas"], ["manual", "Manual"], ["ajustes", "Ajustes"],
 ];
 const tituloDe = (k) => (PANTALLAS.find((p) => p[0] === k) || ["", ""])[1];
 
@@ -472,7 +501,7 @@ function vistaMenu() {
   ${it("inicio", "Inicio")}${it("clientes", "Clientes")}${it("fichas", "Fichas en la app")}${it("eventos", "Eventos")}${it("servicios", "Servicios")}
   ${it("pendientes", "Pendientes", np ? `<span class="badge">${np}</span>` : "")}
   <div class="grp">Herramientas</div>
-  ${it("notif", "Notificaciones")}${it("cobros", "Cobros")}${it("ajustes", "Ajustes")}
+  ${it("notas", "Notas", notasHoy().length ? `<span class="badge">${notasHoy().length}</span>` : "")}${it("manual", "Manual")}${it("notif", "Notificaciones")}${it("cobros", "Cobros")}${it("ajustes", "Ajustes")}
   <div class="fill"></div>
   <button type="button" class="nav" data-act="salir">${svg("salir")}<span class="n">${S.demo ? "Salir del ejemplo" : "Cerrar sesión"}</span></button>`;
 }
@@ -523,6 +552,7 @@ function vInicio() {
     ${card("var(--hoja)", "Fichas en la app", lug.length - ocultas, `${ocultas} ocultas · ${sinUbic} sin ubicación`, "fichas", hojaD)}
     ${card("var(--rio1)", "Pendientes", S.db.pendientes.length, "altas y cambios por revisar", "pendientes")}
   </div>
+  ${notasHoy().length ? `<section class="panel amar"><div class="row" style="justify-content:space-between"><h2>Para hacer hoy</h2><button type="button" class="btn sm" data-act="go" data-arg="notas">Ver todas las notas</button></div>${notasHoy().slice(0, 6).map((n) => itemNota(n)).join("")}</section>` : ""}
   <div class="split" style="align-items:stretch">
     <section class="panel" style="flex:1 1 320px">
       <div class="row" style="justify-content:space-between"><h2>Cobros de este mes</h2><button type="button" class="iconbtn" data-act="ojo" aria-label="${S.ojo ? "Ocultar montos" : "Mostrar montos"}">${svg(S.ojo ? "ojo" : "ojoNo", 20)}</button></div>
@@ -610,6 +640,7 @@ function detalleCliente(c) {
     ${fichas.length ? `<div class="lst">${fichas.map((l) => `<div class="li"><span class="emo" style="background:${esc(l.color || "#1E88E5")}22">${esc(l.emoji || "📍")}</span><span style="flex:1;min-width:0"><b>${esc(l.nombre)}</b><br><span class="muted">${esc(tipoLabel(l.tipo))}${l.categoria ? " · " + esc(l.categoria) : ""} · ${esVisible(l) ? "visible" : "oculta"}</span></span><button type="button" class="btn sm" data-act="abrir" data-arg="fichas|${esc(l.id)}">Editar</button><button type="button" class="btn sm ghost" data-act="desvincular" data-arg="${esc(l.id)}">Quitar</button></div>`).join("")}</div>` : '<div class="empty">Todavía no tiene fichas en la app.</div>'}
     ${libres.length ? `<div class="row"><label class="f" style="flex:1 1 220px">Vincular una ficha que ya existe<select class="in" id="vincularSel">${libres.map((l) => opt(l.id, l.nombre + " (" + tipoLabel(l.tipo) + ")", "")).join("")}</select></label><button type="button" class="btn" data-act="vincular" data-arg="${esc(c.id)}" style="align-self:flex-end">Vincular</button></div>` : ""}
   </section>
+  ${S.faltaManual ? "" : `<section class="panel"><div class="row" style="justify-content:space-between"><h2>Notas</h2><button type="button" class="btn sm dark" data-act="nuevaNota" data-arg="${esc(c.id)}">+ Nota</button></div>${(() => { const ns = S.db.notas.filter((n) => n.cliente_id === c.id).sort((a, b) => Number(a.hecha) - Number(b.hecha) || (b.creada || "").localeCompare(a.creada || "")); return ns.length ? ns.map((n) => itemNota(n, false)).join("") : '<div class="empty">Sin notas de este cliente.</div>'; })()}</section>`}
   <div class="row"><button type="button" class="btn peligro sm" data-act="borrarCliente" data-arg="${esc(c.id)}">Borrar cliente</button><span class="small muted">Sus fichas no se borran: quedan sin cliente.</span></div>`;
 }
 
@@ -981,6 +1012,195 @@ function vModalNuevo() {
   </div></div>`;
 }
 
+
+// =====================================================================
+//  MANUAL — procedimientos base (se cargan una vez y después se editan en el panel)
+// =====================================================================
+const MANUAL_BASE = [
+  { id: "m-preparar", orden: 1, emoji: "🎒", titulo: "Antes de salir a ofrecer la app", resumen: "Qué tener listo antes de visitar o escribirle a un comercio.",
+    cuerpo: `1. Tené la app instalada en tu celular y abierta en la sección del rubro del comercio (Comer, Alojamiento, Playas…).
+2. Llevá el folleto para comercios (el de Canva) impreso o en el celular para mandarlo por WhatsApp.
+3. Tené a mano el link de la app en Google Play para pasárselo.
+4. Repasá el precio del plan (en Ajustes del panel) y cuánto dura la prueba gratis.
+5. Fijate en el panel si ese comercio ya tiene ficha en la app (Fichas en la app › buscar el nombre): si ya está, mostrársela es el mejor gancho.
+! Elegí horarios tranquilos: a media mañana o media tarde, nunca en la hora pico del local.` },
+  { id: "m-primer-contacto", orden: 2, emoji: "🤝", titulo: "Primer contacto con un comercio", resumen: "La charla para ofrecerle aparecer en Colón 360 (en persona o por WhatsApp).",
+    cuerpo: `1. Presentate: “Soy Nahuel, de Colón, armé Colón 360, la app para turistas y vecinos de Colón”.
+2. Mostrale la app en tu celular: el Inicio, el mapa y la sección de su rubro.
+3. Si ya tiene ficha, mostrásela. Si no, mostrale la de un comercio parecido.
+4. Contale qué gana: lo encuentran los turistas, le escriben directo por WhatsApp, puede poner promos y aparece en el mapa.
+5. Ofrecele la prueba gratis, sin compromiso.
+6. Si dice que sí: seguí con “Dar de alta un cliente”.
+7. Si dice “lo pienso”: dejale el folleto y anotá con el botón de Nota cuándo volver a escribirle.
+8. Si dice que no: anotá el motivo en una Nota (sirve para mejorar la propuesta).
+! No presiones: el que prueba y ve consultas, se queda.
+- Lo que más le importa al comerciante: que lo encuentren, que le escriban y que no le dé trabajo.` },
+  { id: "m-datos", orden: 3, emoji: "📋", titulo: "Qué datos pedirle al comercio", resumen: "La lista para armar una ficha completa.",
+    cuerpo: `1. Nombre del comercio, como quiere que aparezca.
+2. Rubro (restaurante, cabaña, gimnasio…).
+3. Dirección y ubicación: que te mande la ubicación por WhatsApp o el link de Google Maps.
+4. Horario de atención.
+5. WhatsApp para consultas (y teléfono fijo si tiene).
+6. Una descripción corta: qué ofrece y qué lo hace distinto.
+7. 3 o 4 palabras clave (ej: Parrilla, Vista al río, Familiar).
+8. Promo, si quiere tener una.
+9. Link de la carta o menú (restaurantes y cafés).
+10. Nombre de la persona de contacto.
+! Pedilo todo junto en un solo mensaje de WhatsApp: es más fácil que te lo mande de una.` },
+  { id: "m-alta", orden: 4, emoji: "🆕", titulo: "Dar de alta un cliente en el panel", resumen: "Desde que dice que sí hasta que aparece en la app.",
+    cuerpo: `1. Panel › Clientes › “+ Nuevo cliente”.
+2. Completá nombre, categoría, rubro, contacto y WhatsApp.
+3. Pago: “Prueba gratis” y en “Vence” la fecha en que termina la prueba.
+4. Dejá tildado “Crearle la ficha en la app” y destildado “Mostrarla en la app ya” (así la completás tranquilo).
+5. En el cliente, abajo, tocá “Editar” en su ficha y cargá los datos que te pasó: descripción, horario, dirección, ubicación, etiquetas, promo, carta.
+6. Mirá la vista previa del celular a la derecha: tiene que verse como querés.
+7. Guardá la ficha.
+8. Volvé al cliente y tocá “Activar en la app”.
+9. Abrí la app en tu celular, buscalo y mandale captura al comerciante: “¡Ya estás en Colón 360!”.
+! Si falta algún dato, igual podés activarlo y completarlo después.` },
+  { id: "m-cobro", orden: 5, emoji: "💰", titulo: "Cobrar y registrar un pago", resumen: "Cada mes, o cuando termina la prueba gratis.",
+    cuerpo: `1. Panel › Cobros › “Para cobrar” muestra los que vencen en 5 días o ya vencieron.
+2. Tocá “Avisar”: se abre WhatsApp con el mensaje armado. Revisalo y mandalo.
+3. Pasale cómo pagar (link de Mercado Pago o transferencia).
+4. Cuando te paga, tocá “Registrar pago”: el vencimiento se corre un mes solo.
+5. Si pasaron varios días de vencido y no paga, tocá “Sacar de la app” en el cliente y avisale con buena onda.
+! El cobro es siempre por fuera de la app: dentro de la app no se cobra nada.
+- Cómo facturar (monotributo): consultalo con tu contador.` },
+  { id: "m-fin-prueba", orden: 6, emoji: "⏳", titulo: "Cuando termina la prueba gratis", resumen: "Pasar al plan pago sin perder al cliente.",
+    cuerpo: `1. 2 o 3 días antes, el panel lo marca “Por vencer”.
+2. Escribile: preguntale cómo le fue y si recibió consultas.
+3. Ofrecele seguir con el plan y pasale el precio.
+4. Si sigue: Registrar pago (queda “Activo”).
+5. Si no sigue: “Sacar de la app” y en Pago elegí “Baja”. Anotá el motivo en una Nota.` },
+  { id: "m-cambios", orden: 7, emoji: "✏️", titulo: "Cuando un comercio pide un cambio", resumen: "Horarios, promos, datos nuevos.",
+    cuerpo: `1. Si llegó a Pendientes: abrilo, revisá “Ahora en la app / Queda así” y tocá “Aplicar cambios”.
+2. Si te lo pidió por WhatsApp: Fichas en la app › buscá la ficha › cambiá el dato › Guardar.
+3. Mirá la vista previa antes de guardar.
+4. Respondele: “¡Listo! Ya está actualizado en Colón 360”.
+! Los cambios se ven en la app la próxima vez que alguien abre esa sección: no hace falta versión nueva.` },
+  { id: "m-eventos", orden: 8, emoji: "🎉", titulo: "Cargar un evento", resumen: "Fiestas, shows y ferias para la Agenda de la app.",
+    cuerpo: `1. Panel › Eventos › “+ Nuevo evento”.
+2. Escribí el título y elegí “Una fecha” (o “Todo el año” / “Temporada”).
+3. Elegí el día en el calendario. Si dura varios días, completá “Hasta”.
+4. Completá lugar, horario, ícono y una descripción corta.
+5. Guardá. Se oculta solo de la app cuando termina.` },
+];
+const cuerpoHTML = (texto, ticks, id) => {
+  let n = 0, html = "", ul = false;
+  const fin = () => { if (ul) { html += "</ul>"; ul = false; } };
+  const fmt = (t) => esc(t).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
+  String(texto || "").split("\n").forEach((raw) => {
+    const l = raw.trim();
+    if (!l) { fin(); return; }
+    let m;
+    if ((m = l.match(/^\d+[.)]\s*(.*)$/))) {
+      fin(); const i = n++; const ok = !!(ticks && ticks[i]);
+      html += `<button type="button" class="paso ${ok ? "ok" : ""}" data-act="tildar" data-arg="${esc(id)}|${i}" aria-pressed="${ok}"><span class="num">${ok ? "✓" : i + 1}</span><span class="tx">${fmt(m[1])}</span></button>`;
+    } else if ((m = l.match(/^[-•]\s*(.*)$/))) { if (!ul) { html += '<ul class="vin">'; ul = true; } html += `<li>${fmt(m[1])}</li>`; }
+    else if ((m = l.match(/^!\s*(.*)$/))) { fin(); html += `<div class="tip">💡 ${fmt(m[1])}</div>`; }
+    else if ((m = l.match(/^##\s*(.*)$/))) { fin(); html += `<h3>${fmt(m[1])}</h3>`; }
+    else { fin(); html += `<p style="margin:0;line-height:1.6">${fmt(l)}</p>`; }
+  });
+  fin();
+  return html;
+};
+
+// =====================================================================
+//  MANUAL
+// =====================================================================
+function vManual() {
+  if (S.faltaManual) return avisoManual("Manual");
+  const lst = [...S.db.manual].sort((a, b) => (Number(a.orden) || 0) - (Number(b.orden) || 0) || (a.titulo || "").localeCompare(b.titulo || ""));
+  const m = S.man;
+  const sel = m.sel ? lst.find((x) => x.id === m.sel) : null;
+  return `<div class="head"><div><h1>Manual</h1><p>Cómo hacemos las cosas en Colón 360, paso a paso. Tocá los pasos para ir tildándolos mientras los hacés, y editalo cada vez que aprendas algo nuevo.</p></div><div class="row">${ejemplo()}<button type="button" class="btn dark" data-act="nuevoManual">+ Nuevo procedimiento</button></div></div>
+  ${lst.length ? `<div class="split ${S.det.manual ? "det" : ""}">
+    <div class="list">${lst.map((x) => `<button type="button" class="item ${sel && sel.id === x.id ? "on" : ""}" style="text-align:left;padding:12px 14px" data-act="verManual" data-arg="${esc(x.id)}"><span class="emo" style="background:var(--amar2)">${esc(x.emoji || "📘")}</span><span style="min-width:0;flex:1"><span class="tt" style="white-space:normal">${esc(x.titulo)}</span><span class="st">${esc(x.resumen || "")}</span></span></button>`).join("")}</div>
+    <div class="detail">${m.edit ? editorManual(m.draft) : sel ? verManualHTML(sel) : '<div class="empty">Elegí un procedimiento para verlo.</div>'}</div>
+  </div>` : `<div class="empty" style="padding:40px">Todavía no hay procedimientos cargados.<br><button type="button" class="btn dark" style="margin-top:14px" data-act="cargarManualBase">Cargar el manual base (8 procedimientos)</button><br><span class="small">Después los podés editar, borrar o sumar los tuyos.</span></div>`}`;
+}
+function verManualHTML(x) {
+  const ticks = S.man.ticks[x.id] || {};
+  const hechos = Object.values(ticks).filter(Boolean).length;
+  const total = (String(x.cuerpo || "").match(/^\s*\d+[.)]/gm) || []).length;
+  return `${atras("manual", "Volver al manual")}
+  <section class="panel">
+    <div class="row" style="justify-content:space-between;align-items:flex-start"><div style="flex:1;min-width:200px"><span style="font-size:28px">${esc(x.emoji || "📘")}</span><h2>${esc(x.titulo)}</h2>${x.resumen ? `<p class="muted" style="margin:4px 0 0">${esc(x.resumen)}</p>` : ""}</div>
+    <div class="row"><button type="button" class="iconbtn" data-act="moverManual" data-arg="${esc(x.id)}|-1" aria-label="Subir">↑</button><button type="button" class="iconbtn" data-act="moverManual" data-arg="${esc(x.id)}|1" aria-label="Bajar">↓</button><button type="button" class="btn" data-act="editarManual" data-arg="${esc(x.id)}">Editar</button></div></div>
+    ${total ? `<div class="row small"><span style="flex:1">${hechos} de ${total} pasos hechos</span>${hechos ? `<button type="button" class="btn sm ghost" data-act="reiniciarPasos" data-arg="${esc(x.id)}">Empezar de nuevo</button>` : ""}</div><div style="height:10px;border:1.5px solid var(--tinta);border-radius:999px;overflow:hidden;background:var(--perg)"><div style="height:100%;width:${Math.round(hechos / total * 100)}%;background:var(--musgo2)"></div></div>` : ""}
+    <div class="manual">${cuerpoHTML(x.cuerpo, ticks, x.id)}</div>
+    ${x.actualizado ? `<span class="small muted">Última edición: ${fechaCorta(x.actualizado)}</span>` : ""}
+  </section>`;
+}
+function editorManual(d) {
+  return `${atras("manual", "Volver al manual")}
+  <section class="panel">
+    <h2>${d._id ? "Editar procedimiento" : "Nuevo procedimiento"}</h2>
+    <div class="form">
+      <div class="g3">${inp("man.titulo", "Título", d.titulo)}${inp("man.resumen", "Cuándo se usa", d.resumen)}${inp("man.emoji", "Ícono", d.emoji, 'maxlength="4" style="font-size:20px;text-align:center"')}</div>
+      ${txt("man.cuerpo", "Pasos", d.cuerpo, 16)}
+      <div class="msg info" style="font-weight:400;line-height:1.7">Cómo escribirlo: <b>1.</b> al principio = paso numerado (se puede tildar) · <b>-</b> = viñeta · <b>!</b> = consejo destacado · <b>##</b> = subtítulo · **texto** = negrita.</div>
+    </div>
+    <div class="row"><button type="button" class="btn dark" data-act="guardarManual">${d._id ? "Guardar cambios" : "Crear procedimiento"}</button><button type="button" class="btn ghost" data-act="cancelarManual">Cancelar</button>${d._id ? `<button type="button" class="btn peligro sm" data-act="borrarManual" data-arg="${esc(d._id)}">Borrar</button>` : ""}</div>
+  </section>`;
+}
+
+// =====================================================================
+//  NOTAS
+// =====================================================================
+const notasHoy = () => S.db.notas.filter((n) => !Number(n.hecha) && n.recordar && n.recordar <= hoyISO());
+function cuandoNota(n) {
+  if (!n.recordar) return "";
+  const d = diasHasta(n.recordar);
+  const t = d === 0 ? "Hoy" : d === 1 ? "Mañana" : d < 0 ? `Atrasada (${fechaCorta(n.recordar)})` : fechaCorta(n.recordar);
+  return `<span class="tag" style="background:${d <= 0 && !Number(n.hecha) ? "var(--ambar2)" : "var(--linea)"}">⏰ ${t}</span>`;
+}
+function itemNota(n, conCliente = true) {
+  const c = clientePorId(n.cliente_id);
+  const hecha = !!Number(n.hecha);
+  return `<div class="nota ${hecha ? "hecha" : ""}">
+    <button type="button" class="chk" data-act="notaHecha" data-arg="${esc(n.id)}" aria-pressed="${hecha}" aria-label="${hecha ? "Marcar como pendiente" : "Marcar como hecha"}">${hecha ? "✓" : ""}</button>
+    <div style="flex:1;min-width:0"><div class="tx">${esc(n.texto)}</div><div class="row small" style="gap:6px;margin-top:4px">${cuandoNota(n)}${conCliente && c ? `<button type="button" class="tag" style="background:var(--rio1);cursor:pointer" data-act="abrir" data-arg="clientes|${esc(c.id)}">💼 ${esc(c.nombre)}</button>` : ""}</div></div>
+    <button type="button" class="btn sm ghost" data-act="editarNota" data-arg="${esc(n.id)}">Editar</button>
+  </div>`;
+}
+function vNotas() {
+  if (S.faltaManual) return avisoManual("Notas");
+  const tab = S.f.notaTab || "Pendientes";
+  const q = norm(S.q.nota);
+  const base = S.db.notas.filter((n) => !q || norm(n.texto + " " + ((clientePorId(n.cliente_id) || {}).nombre || "")).includes(q));
+  const pasa = (n, t) => t === "Para hoy" ? (!Number(n.hecha) && n.recordar && n.recordar <= hoyISO()) : t === "Pendientes" ? !Number(n.hecha) : !!Number(n.hecha);
+  const lst = base.filter((n) => pasa(n, tab)).sort((a, b) => (a.recordar || "9999").localeCompare(b.recordar || "9999") || (b.creada || "").localeCompare(a.creada || ""));
+  const hechas = base.filter((n) => Number(n.hecha)).length;
+  return `<div class="head"><div><h1>Notas</h1><p>Lo que anotás al vuelo con el botón “Nota”: cosas para ver más adelante, ideas, a quién volver a escribirle. Si la pegás a un cliente, también aparece en su ficha.</p></div><div class="row">${ejemplo()}<button type="button" class="btn dark" data-act="nuevaNota">+ Nota</button></div></div>
+  <div class="list" style="max-width:760px;display:flex;flex-direction:column;gap:10px">
+    ${buscador("nota", "Buscar en las notas…")}
+    ${chips("Mostrar", "notaTab", ["Para hoy", "Pendientes", "Hechas"].map((v) => ({ v, l: v, n: base.filter((n) => pasa(n, v)).length })), tab)}
+    ${lst.length ? lst.map((n) => itemNota(n)).join("") : `<div class="empty">${tab === "Para hoy" ? "Nada para hoy. 🌴" : "No hay notas acá."}</div>`}
+    ${tab === "Hechas" && hechas ? `<button type="button" class="btn sm peligro" style="align-self:flex-start" data-act="borrarHechas">Borrar las ${hechas} hechas</button>` : ""}
+  </div>`;
+}
+function vModalNota() {
+  const n = S.d.nota;
+  if (!n) return "";
+  const chipF = (l, v) => `<button type="button" class="chip ${(n.recordar || "") === v ? "on" : ""}" data-act="notaFecha" data-arg="${v}">${l}</button>`;
+  const dd = (k) => { const d = new Date(); d.setDate(d.getDate() + k); return isoLocal(d); };
+  return `<div class="modal" data-act="cerrarNotaFondo"><div class="box" role="dialog" aria-modal="true" aria-label="Nota">
+    <div class="row" style="justify-content:space-between"><h2>${n._id ? "Editar nota" : "Nota rápida"}</h2><button type="button" class="iconbtn" data-act="cerrarNota" aria-label="Cerrar">×</button></div>
+    <div class="form">
+      <label class="f">Qué querés anotar<textarea class="in" data-b="nota.texto" rows="4" placeholder="Ej: Volver a escribirle el lunes, quedó en pensarlo">${esc(n.texto)}</textarea></label>
+      ${sel("nota.cliente_id", "Pegarla a un cliente (opcional)", n.cliente_id || "", [{ v: "", l: "— Ninguno —" }, ...[...S.db.clientes].sort((a, b) => a.nombre.localeCompare(b.nombre)).map((c) => ({ v: c.id, l: c.nombre }))])}
+      <div class="chips" role="group" aria-label="Recordarme"><span class="lbl">Recordarme</span>${chipF("Sin fecha", "")}${chipF("Hoy", dd(0))}${chipF("Mañana", dd(1))}${chipF("En 1 semana", dd(7))}</div>
+      ${inp("nota.recordar", "Otro día", n.recordar, 'type="date"')}
+    </div>
+    <div id="notaMsg"></div>
+    <div class="row" style="justify-content:space-between"><span>${n._id ? `<button type="button" class="btn peligro sm" data-act="borrarNota" data-arg="${esc(n._id)}">Borrar</button>` : ""}</span><span class="row"><button type="button" class="btn ghost" data-act="cerrarNota">Cancelar</button><button type="button" class="btn dark" data-act="guardarNota">Guardar nota</button></span></div>
+  </div></div>`;
+}
+function avisoManual(nombre) {
+  return `<div class="head"><div><h1>${esc(nombre)}</h1></div></div><section class="panel"><h2>Falta un paso para usar esta sección</h2><div class="msg info" style="font-weight:400;line-height:1.6">Hay que crear dos tablas nuevas en la base, una sola vez. En GitHub Desktop: <b>Repository › Open in Command Prompt</b>, y después:<br><code>cd server</code><br><code>npx wrangler d1 execute colon360 --remote --file=migracion-manual-notas.sql</code><br><code>npx wrangler deploy</code></div><div class="row"><button type="button" class="btn dark" data-act="recargar">Ya lo hice, volver a cargar</button></div></section>`;
+}
+
 // =====================================================================
 //  MODO EJEMPLO (datos inventados en memoria; no toca la API)
 // =====================================================================
@@ -1019,6 +1239,12 @@ function demoSembrar() {
     pendientes: [
       { id: "pd1", tipo: "alta", origen: "Formulario web", recibido: new Date(Date.now() - 2 * 3600e3).toISOString(), datos: { nombre: "Mercería Doña Rosa", cat: "Otros", rubro: "Mercería", contacto: "Rosa", whatsapp: "03447 15 123456", desc: "Hilos, botones, lanas y arreglos.", horario: "Lun a sáb 9 a 12:30 y 17 a 20:30", dir: "", tags: "Mercería" }, mensaje: "Formulario de colon360.com\nNombre: Mercería Doña Rosa\nRubro: Mercería\nWhatsApp: 03447 15 123456" },
       { id: "pd2", tipo: "cambio", origen: "WhatsApp", recibido: new Date(Date.now() - 30 * 60e3).toISOString(), lugar_id: "parrilla-la-costanera", cambios: [{ key: "horario", campo: "Horario", despues: "Mié a dom · 12:00 – 15:30 y 20:00 – 00:30" }, { key: "promo", campo: "Promo", despues: "Menú ejecutivo al mediodía" }], mensaje: "“Hola! Cambiamos el horario: ahora de miércoles a domingo. Y sacá lo del 2x1, ahora tenemos menú ejecutivo.”" },
+    ],
+    manual: MANUAL_BASE.map((m) => ({ ...m, actualizado: isoLocal(hoy) })),
+    notas: [
+      { id: "nota1", texto: "Volver a escribirle a la heladería del centro: quedó en pensarlo", cliente_id: null, recordar: dd(0), hecha: 0, creada: new Date().toISOString() },
+      { id: "nota2", texto: "Pedirle fotos nuevas de las cabañas", cliente_id: "cabanas-rio-claro-a1b2", recordar: dd(3), hecha: 0, creada: new Date().toISOString() },
+      { id: "nota3", texto: "Idea: promo de verano para paradores", cliente_id: null, recordar: "", hecha: 1, creada: new Date().toISOString() },
     ],
     notificaciones: [
       { id: "n1", estado: "Programada", tema: "Promos", cliente_id: "parrilla-la-costanera-c3d4", titulo: "Parrilla La Costanera: 2x1 en postres", texto: "Solo hoy de 20 a 23 h. Tocá para ver la carta.", abre: "Ficha del comercio", cuando: "Programar", fecha: dd(2), hora: "19:00", dia_semana: "", creada: "" },
@@ -1077,7 +1303,7 @@ const msgEn = (sel, txt, tipo = "err") => { const el = $(sel); if (el) el.innerH
 const abrirWa = (numero, texto) => { const n = normalizarWhatsApp(numero); if (!n) { toast("No tiene un WhatsApp válido cargado.", true); return; } window.open("https://wa.me/" + n + "?text=" + encodeURIComponent(texto), "_blank", "noopener"); };
 
 const A = {
-  go(k) { S.screen = k; S.menu = false; S.det[k] = false; location.hash = k; render(); arriba(); },
+  go(k) { S.screen = k; S.menu = false; S.det[k] = false; if (k === "manual") S.man.edit = false; location.hash = k; render(); arriba(); },
   menu() { S.menu = !S.menu; render(); },
   volver(k) { S.det[k] = false; render(); arriba(); },
   filtro(arg) { const [k, v] = arg.split("|"); S.f[k] = v; render(); },
@@ -1325,6 +1551,74 @@ const A = {
     }
   },
 
+
+  // ---------- manual ----------
+  verManual(id) { S.man.sel = id; S.man.edit = false; S.det.manual = true; render(); arriba(); },
+  tildar(arg) { const i = arg.lastIndexOf("|"), id = arg.slice(0, i), n = arg.slice(i + 1); const t = S.man.ticks[id] || (S.man.ticks[id] = {}); t[n] = !t[n]; render(); },
+  reiniciarPasos(id) { S.man.ticks[id] = {}; render(); },
+  nuevoManual() { S.man.edit = true; S.man.draft = { _id: null, titulo: "", resumen: "", emoji: "📘", cuerpo: "1. \n2. \n3. " }; S.d.man = S.man.draft; S.det.manual = true; render(); arriba(); },
+  editarManual(id) { const x = S.db.manual.find((y) => y.id === id); if (!x) return; S.man.edit = true; S.man.draft = { ...x, _id: x.id }; S.d.man = S.man.draft; render(); arriba(); },
+  cancelarManual() { S.man.edit = false; if (!S.man.sel) S.det.manual = false; render(); },
+  async guardarManual() {
+    const d = S.man.draft;
+    if (!String(d.titulo || "").trim()) { toast("Falta el título.", true); return; }
+    const body = { titulo: d.titulo.trim(), resumen: d.resumen || "", emoji: d.emoji || "📘", cuerpo: d.cuerpo || "", actualizado: hoyISO() };
+    let id = d._id;
+    if (!id) { id = "m-" + slug(d.titulo) + "-" + rnd(); body.id = id; body.orden = Math.max(0, ...S.db.manual.map((x) => Number(x.orden) || 0)) + 1; }
+    if (await guardar("manual", d._id || null, body, d._id ? "✓ Procedimiento guardado." : "✓ Procedimiento creado.")) { S.man.edit = false; S.man.sel = id; render(); }
+  },
+  async borrarManual(id) {
+    const x = S.db.manual.find((y) => y.id === id); if (!x) return;
+    if (!confirm(`¿Borrar “${x.titulo}” del manual?`)) return;
+    if (await borrar("manual", id, "Procedimiento borrado.")) { S.man = { sel: null, edit: false, draft: null, ticks: S.man.ticks }; S.det.manual = false; render(); }
+  },
+  async moverManual(arg) {
+    const [id, dir] = arg.split("|");
+    const lst = [...S.db.manual].sort((a, b) => (Number(a.orden) || 0) - (Number(b.orden) || 0));
+    const i = lst.findIndex((x) => x.id === id), j = i + Number(dir);
+    if (i < 0 || j < 0 || j >= lst.length) return;
+    [lst[i], lst[j]] = [lst[j], lst[i]];
+    try { for (let k = 0; k < lst.length; k++) if (Number(lst[k].orden) !== k + 1) await api("PUT", "/manual/" + encodeURIComponent(lst[k].id), { orden: k + 1 }); await cargar("manual"); render(); }
+    catch (e) { toast("No se pudo mover: " + e.message, true); }
+  },
+  async cargarManualBase() {
+    try {
+      for (const m of MANUAL_BASE) if (!S.db.manual.some((x) => x.id === m.id)) await api("POST", "/manual", { ...m, actualizado: hoyISO() });
+      await cargar("manual"); S.man.sel = MANUAL_BASE[0].id; render(); toast("✓ Manual cargado. Editalo cuando quieras.");
+    } catch (e) { toast("No se pudo cargar: " + e.message, true); }
+  },
+
+  // ---------- notas ----------
+  nuevaNota(cid) {
+    if (S.faltaManual) { A.go("notas"); return; }
+    const deCliente = typeof cid === "string" && cid ? cid : (S.screen === "clientes" && S.det.clientes && S.d.cli ? S.d.cli.id : "");
+    S.d.nota = { _id: null, texto: "", cliente_id: deCliente, recordar: "" };
+    render();
+    setTimeout(() => { const el = document.querySelector('[data-b="nota.texto"]'); if (el) el.focus(); }, 30);
+  },
+  editarNota(id) { const n = S.db.notas.find((x) => x.id === id); if (!n) return; S.d.nota = { ...n, _id: n.id, cliente_id: n.cliente_id || "", recordar: n.recordar || "" }; render(); },
+  notaFecha(v) { S.d.nota.recordar = v; render(); },
+  cerrarNota() { S.d.nota = null; render(); },
+  cerrarNotaFondo(_, el, ev) { if (ev.target === el) A.cerrarNota(); },
+  async guardarNota() {
+    const n = S.d.nota;
+    if (!String(n.texto || "").trim()) { msgEn("#notaMsg", "Escribí algo en la nota."); return; }
+    const body = { texto: n.texto.trim(), cliente_id: n.cliente_id || null, recordar: n.recordar || "" };
+    if (!n._id) { body.id = "nota-" + Date.now().toString(36) + rnd(); body.creada = new Date().toISOString(); body.hecha = 0; }
+    if (await guardar("notas", n._id || null, body, n._id ? "✓ Nota guardada." : "✓ Nota anotada.")) { S.d.nota = null; render(); }
+  },
+  async notaHecha(id) {
+    const n = S.db.notas.find((x) => x.id === id); if (!n) return;
+    if (await guardar("notas", id, { hecha: Number(n.hecha) ? 0 : 1 }, Number(n.hecha) ? "Nota pendiente de nuevo." : "✓ Hecha.")) render();
+  },
+  async borrarNota(id) { if (!confirm("¿Borrar esta nota?")) return; if (await borrar("notas", id, "Nota borrada.")) { S.d.nota = null; render(); } },
+  async borrarHechas() {
+    const h = S.db.notas.filter((n) => Number(n.hecha));
+    if (!h.length || !confirm(`¿Borrar las ${h.length} notas hechas?`)) return;
+    try { for (const n of h) await api("DELETE", "/notas/" + encodeURIComponent(n.id)); await cargar("notas"); render(); toast("✓ Notas hechas borradas."); }
+    catch (e) { toast("No se pudo borrar: " + e.message, true); }
+  },
+
   // ---------- notificaciones ----------
   nfTema(v) { S.d.nf.tema = v; S.d.nf.abre = (TEMAS.find((t) => t[0] === v) || [])[2]; render(); },
   nfCuando(v) { S.d.nf.cuando = v; render(); },
@@ -1373,7 +1667,7 @@ async function altaCliente(c, ficha, publicar) {
 // =====================================================================
 //  PINTAR Y ESCUCHAR
 // =====================================================================
-const VISTAS = { inicio: vInicio, clientes: vClientes, fichas: vFichas, eventos: vEventos, servicios: vServicios, pendientes: vPendientes, notif: vNotif, cobros: vCobros, ajustes: vAjustes };
+const VISTAS = { inicio: vInicio, clientes: vClientes, fichas: vFichas, eventos: vEventos, servicios: vServicios, pendientes: vPendientes, notif: vNotif, cobros: vCobros, notas: vNotas, manual: vManual, ajustes: vAjustes };
 function render() {
   if (!VISTAS[S.screen]) S.screen = "inicio";
   const ae = document.activeElement;
@@ -1384,7 +1678,8 @@ function render() {
   $("#mtitle").textContent = tituloDe(S.screen);
   $("#banner").innerHTML = S.demo ? '<div class="banner amb"><span style="flex:1"><b>Modo ejemplo:</b> son datos inventados y nada de lo que cambies toca la app real.</span></div>' : "";
   $("#main").innerHTML = VISTAS[S.screen]();
-  $("#modal").innerHTML = vModalNuevo();
+  $("#modal").innerHTML = vModalNuevo() + vModalNota();
+  if (!$("#app").hidden) $("#fab").hidden = !!(S.d.nota || S.d.nuevo);
   document.title = tituloDe(S.screen) + " · Colón 360";
   if (foco) {
     const el = document.querySelector(foco.q ? `[data-q="${foco.q}"]` : `[data-b="${foco.b}"]`);
@@ -1426,6 +1721,7 @@ function alCambiar(el) {
     if (b === "nf.hora" || b === "nf.dia_semana" || b === "nf.fecha") render();
   }
   if (b === "ev.fecha") render();
+  if (b === "nota.recordar") render();
   if (b.startsWith("pd.d.")) { /* los avisos se actualizan al guardar */ }
 }
 document.addEventListener("input", (e) => { const el = e.target; if (el.matches("input:not([type=checkbox]):not([type=date]):not([type=time]), textarea")) alCambiar(el); });
@@ -1436,7 +1732,7 @@ document.addEventListener("click", (e) => {
   const fn = A[el.dataset.act];
   if (fn) { if (el.tagName === "A") e.preventDefault(); fn(el.dataset.arg, el, e); }
 });
-document.addEventListener("keydown", (e) => { if (e.key === "Escape") { if (S.d.nuevo) A.cerrarModal(); else if (S.menu) A.menu(); } });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") { if (S.d.nota) A.cerrarNota(); else if (S.d.nuevo) A.cerrarModal(); else if (S.menu) A.menu(); } });
 window.addEventListener("hashchange", () => { const k = location.hash.slice(1); if (k && k !== S.screen && VISTAS[k]) { S.screen = k; render(); } });
 
 // =====================================================================
@@ -1456,6 +1752,7 @@ async function probarClave(k) {
 async function entrar() {
   $("#login").hidden = true;
   $("#app").hidden = false;
+  $("#fab").hidden = false;
   $("#main").innerHTML = '<div class="loading">Cargando…</div>';
   pintarDeco();
   render();

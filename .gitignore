@@ -5,3 +5,7 @@ dist-android
 *.local
 .wrangler/
 node_modules/
+# Ajustes personales de Android Studio (no son parte de la app)
+android/.idea/appInsightsSettings.xml
+android/.idea/runConfigurations.xml
+android/.idea/workspace.xml
