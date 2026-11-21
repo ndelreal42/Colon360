@@ -408,6 +408,12 @@ const esVisible = (x) => x && Number(x.visible ?? 1) !== 0;
 
 // ---------- eventos: entender dia/mes ----------
 function fechaEvento(ev) {
+  const real = parseISO(ev.fecha);
+  if (real) {
+    const fin = parseISO(ev.fecha_fin) || real;
+    const hoyR = new Date(); hoyR.setHours(0, 0, 0, 0);
+    return { tipo: "fecha", date: real, iso: ev.fecha, fin, pasado: fin < hoyR, real: true };
+  }
   const dia = String(ev.dia || "").trim(), mes = String(ev.mes || "").trim().toUpperCase().slice(0, 3);
   const mi = MESES.indexOf(mes);
   if (/^todo$/i.test(dia)) return { tipo: "anio" };
@@ -504,7 +510,7 @@ function vInicio() {
   const sinUbic = lug.filter((l) => l.lat === null || l.lat === undefined || l.lat === "").length;
   const evs = S.db.eventos.map((e) => ({ ...e, fe: fechaEvento(e) }));
   const prox = evs.filter((e) => e.fe.tipo === "fecha" && !e.fe.pasado).sort((a, b) => a.fe.date - b.fe.date).slice(0, 5);
-  const pasados = evs.filter((e) => e.fe.tipo === "fecha" && e.fe.pasado).length;
+  const pasados = evs.filter((e) => e.fe.tipo === "fecha" && e.fe.pasado && !e.fe.real).length;
   const raros = evs.filter((e) => e.fe.tipo === "raro").length;
   const money = (v) => S.ojo ? plata(v) : "$ ••••••";
   const card = (bg, t, big, s, go, deco) => `<button type="button" class="card" style="background:${bg}" ${go ? `data-act="go" data-arg="${go}"` : ""}>${deco || ""}<span class="t">${t}</span><span class="big">${big}</span><span class="s">${s}</span></button>`;
@@ -750,10 +756,11 @@ function vEventos() {
   const opciones = ["Todos", "Próximos", "Todo el año / temporada", "Pasados", "Revisar fecha"].map((v) => ({ v, l: v, n: evs.filter((e) => v === "Todos" || grupo(e) === v).length }));
   const lst = evs.filter((e) => fe === "Todos" || grupo(e) === fe).sort(orden);
   const pasados = evs.filter((e) => grupo(e) === "Pasados");
+  const pasadosVisibles = pasados.filter((x) => !x.fe.real);   // sin fecha real: la app todavía los muestra
   const e = S.d.ev;
-  const badge = (x) => { const g = grupo(x); const bg = { "Pasados": "#E7D6AF", "Revisar fecha": "#E8B47A", "Próximos": "#C5DBA2", "Todo el año / temporada": "#A9D6C4" }[g]; return `<span class="tag" style="background:${bg}">${g === "Todo el año / temporada" ? (x.fe.tipo === "anio" ? "Todo el año" : "Temporada") : g === "Próximos" ? "Próximo" : g === "Pasados" ? "Ya pasó" : g}</span>`; };
+  const badge = (x) => { const g = grupo(x); const bg = { "Pasados": "#E7D6AF", "Revisar fecha": "#E8B47A", "Próximos": "#C5DBA2", "Todo el año / temporada": "#A9D6C4" }[g]; return `<span class="tag" style="background:${bg}">${g === "Todo el año / temporada" ? (x.fe.tipo === "anio" ? "Todo el año" : "Temporada") : g === "Próximos" ? "Próximo" : g === "Pasados" ? (x.fe.real ? "Ya pasó · oculto en la app" : "Ya pasó") : g}</span>`; };
   return `<div class="head"><div><h1>Eventos</h1><p>La agenda que ve la gente en la app. Elegís la fecha en el calendario y el panel la guarda en el formato correcto.</p></div><div class="row">${ejemplo()}<button type="button" class="btn dark" data-act="nuevoEvento">+ Nuevo evento</button></div></div>
-  ${pasados.length ? `<div class="banner amb"><span style="flex:1">${pasados.length === 1 ? "Hay 1 evento que ya pasó" : `Hay ${pasados.length} eventos que ya pasaron`} y se sigue mostrando en la app.</span><button type="button" class="btn sm dark" data-act="borrarPasados">Borrar los que pasaron</button></div>` : ""}
+  ${pasadosVisibles.length ? `<div class="banner amb"><span style="flex:1">${pasadosVisibles.length === 1 ? "Hay 1 evento que ya pasó" : `Hay ${pasadosVisibles.length} eventos que ya pasaron`} y se sigue mostrando en la app (no tiene fecha completa: abrilo y guardalo para que se oculte solo).</span><button type="button" class="btn sm dark" data-act="borrarPasados">Borrar los que pasaron</button></div>` : ""}
   <div class="split ${S.det.eventos ? "det" : ""}">
     <div class="list">
       ${buscador("ev", "Buscar evento o lugar…")}
@@ -773,7 +780,8 @@ function editorEvento(e) {
     <div class="form">
       <div class="g2">${inp("ev.titulo", "Título", e.titulo, 'data-auto="id"')}${inp("ev.id", 'ID <span class="h">(no se cambia después)</span>', e.id, nuevo ? "" : "readonly")}</div>
       <div class="chips" role="group" aria-label="Cuándo es"><span class="lbl">Cuándo</span>${modos.map(([v, l]) => `<button type="button" class="chip ${modo === v ? "on" : ""}" aria-pressed="${modo === v}" data-act="evModo" data-arg="${v}">${l}</button>`).join("")}</div>
-      ${modo === "fecha" ? `<div class="g2">${inp("ev.fecha", "Día", e.fecha, 'type="date"')}<div class="f" style="justify-content:flex-end"><span class="small muted" id="evFmt">${e.fecha ? "En la app: " + esc(fmtEv(e.fecha).dia + " " + fmtEv(e.fecha).mes) + " · " + esc(fechaLarga(e.fecha)) : "Elegí el día"}</span></div></div>` : ""}
+      ${modo === "fecha" ? `<div class="g2">${inp("ev.fecha", "Día", e.fecha, 'type="date"')}<div class="f" style="justify-content:flex-end"><span class="small muted" id="evFmt">${e.fecha ? "En la app: " + esc(fmtEv(e.fecha).dia + " " + fmtEv(e.fecha).mes) + " · " + esc(fechaLarga(e.fecha)) : "Elegí el día"}</span></div></div>
+      <div class="g2">${inp("ev.fecha_fin", 'Hasta <span class="h">(solo si dura varios días)</span>', e.fecha_fin, 'type="date"')}<div class="f" style="justify-content:flex-end"><span class="small muted">El evento desaparece solo de la app cuando termina ese último día (a las 00:00, hora de Argentina).</span></div></div>` : ""}
       ${modo === "libre" ? `<div class="g2">${inp("ev.dia", "Día (texto)", e.dia)}${inp("ev.mes", "Mes (texto)", e.mes)}</div><span class="small muted">Para que se ordene bien: día con dos números (05) y mes en tres letras (DIC).</span>` : ""}
       <div class="g3">${inp("ev.lugar", "Lugar", e.lugar)}${inp("ev.horario", "Horario", e.horario)}${inp("ev.emoji", "Ícono", e.emoji, 'maxlength="4" style="font-size:20px;text-align:center"')}</div>
       <div class="g2">${inp("ev.tel", "Teléfono / contacto", e.tel)}<label class="f">Color<input class="in" data-b="ev.color" value="${esc(e.color || "")}" placeholder="#F9A825"></label></div>
@@ -782,7 +790,7 @@ function editorEvento(e) {
       ${txt("ev.info", 'Detalles <span class="h">(uno por renglón)</span>', e.info, 3)}
       ${inp("ev.tags", 'Etiquetas <span class="h">(separadas por coma)</span>', e.tags)}
     </div>
-    <div class="msg info small" style="font-weight:400">La tarjeta “Próximo evento” del Inicio de la app todavía usa fechas escritas en el código. Los eventos que cargues acá aparecen en la Agenda; para el Inicio hace falta la próxima versión.</div>
+    <div class="msg info small" style="font-weight:400">La tarjeta “Próximo evento” del Inicio de la app todavía usa fechas escritas en el código. Los eventos que cargues acá aparecen en la Agenda y se ocultan solos al terminar; para el Inicio hace falta la próxima versión.</div>
     <div class="row">
       <button type="button" class="btn dark" data-act="guardarEvento">${nuevo ? "Crear evento" : "Guardar cambios"}</button>
       ${nuevo ? "" : `<button type="button" class="btn peligro sm" data-act="borrarEvento" data-arg="${esc(e._id)}">Borrar evento</button>`}
@@ -1049,7 +1057,7 @@ const borradorFicha = (l) => ({
 });
 function borradorEvento(e) {
   const fe = fechaEvento(e);
-  return { ...e, _id: e.id, tags: lista(e.tags).join(", "), info: lista(e.info).join("\n"), modo: fe.tipo === "fecha" ? "fecha" : fe.tipo === "anio" ? "anio" : fe.tipo === "temp" ? "temp" : "libre", fecha: fe.iso || "" };
+  return { ...e, _id: e.id, tags: lista(e.tags).join(", "), info: lista(e.info).join("\n"), modo: fe.tipo === "fecha" ? "fecha" : fe.tipo === "anio" ? "anio" : fe.tipo === "temp" ? "temp" : "libre", fecha: fe.iso || "", fecha_fin: e.fecha_fin || "" };
 }
 const manana = () => { const d = new Date(); d.setDate(d.getDate() + 1); return isoLocal(d); };
 const nfVacia = () => ({ _id: null, tema: "Promos", cliente_id: "", abre: "Ficha del comercio", titulo: "", texto: "", cuando: "Programar", fecha: manana(), hora: "19:00", dia_semana: "sábado" });
@@ -1224,7 +1232,7 @@ const A = {
   },
 
   // ---------- eventos ----------
-  nuevoEvento() { S.d.ev = { _id: null, _idAuto: true, id: "", titulo: "", modo: "fecha", fecha: "", dia: "", mes: "", emoji: "🎉", color: "#F9A825", lugar: "", horario: "", tel: "", desc: "", info: "", tags: "" }; S.det.eventos = true; render(); arriba(); },
+  nuevoEvento() { S.d.ev = { _id: null, _idAuto: true, id: "", titulo: "", modo: "fecha", fecha: "", fecha_fin: "", dia: "", mes: "", emoji: "🎉", color: "#F9A825", lugar: "", horario: "", tel: "", desc: "", info: "", tags: "" }; S.det.eventos = true; render(); arriba(); },
   evModo(m) { S.d.ev.modo = m; render(); },
   colorEv(c) { S.d.ev.color = c; render(); },
   async guardarEvento() {
@@ -1235,10 +1243,15 @@ const A = {
       if (S.db.eventos.some((x) => String(x.id) === e.id)) { toast("Ya existe un evento con ese ID.", true); return; }
     }
     let dia = e.dia, mes = e.mes;
-    if (e.modo === "fecha") { if (!e.fecha) { toast("Elegí el día del evento.", true); return; } ({ dia, mes } = fmtEv(e.fecha)); }
+    let fecha = "", fecha_fin = "";
+    if (e.modo === "fecha") {
+      if (!e.fecha) { toast("Elegí el día del evento.", true); return; }
+      if (e.fecha_fin && e.fecha_fin < e.fecha) { toast("La fecha \"Hasta\" no puede ser anterior al día de inicio.", true); return; }
+      ({ dia, mes } = fmtEv(e.fecha)); fecha = e.fecha; fecha_fin = e.fecha_fin && e.fecha_fin !== e.fecha ? e.fecha_fin : "";
+    }
     if (e.modo === "anio") { dia = "Todo"; mes = "el año"; }
     if (e.modo === "temp") { dia = "Temp."; mes = "verano"; }
-    const body = { titulo: e.titulo.trim(), dia: dia || "", mes: mes || "", emoji: e.emoji || "", color: e.color || "", lugar: e.lugar || "", horario: e.horario || "", tel: e.tel || "", desc: e.desc || "", info: String(e.info || "").split("\n").map((s) => s.trim()).filter(Boolean), tags: String(e.tags || "").split(",").map((s) => s.trim()).filter(Boolean) };
+    const body = { titulo: e.titulo.trim(), dia: dia || "", mes: mes || "", fecha, fecha_fin, emoji: e.emoji || "", color: e.color || "", lugar: e.lugar || "", horario: e.horario || "", tel: e.tel || "", desc: e.desc || "", info: String(e.info || "").split("\n").map((s) => s.trim()).filter(Boolean), tags: String(e.tags || "").split(",").map((s) => s.trim()).filter(Boolean) };
     if (nuevo) body.id = e.id;
     if (await guardar("eventos", nuevo ? null : e._id, body, nuevo ? "✓ Evento creado." : "✓ Evento guardado.")) {
       const x = S.db.eventos.find((y) => String(y.id) === String(nuevo ? e.id : e._id));

@@ -10,7 +10,8 @@ const TABLES = {
   },
   eventos: {
     table: 'eventos', order: 'mes, dia', json: ['tags', 'info'], filterable: ['dia', 'mes'],
-    cols: ['id', 'titulo', 'dia', 'mes', 'emoji', 'color', 'lugar', 'horario', 'tel', 'desc', 'info', 'tags'],
+    // fecha / fecha_fin (AAAA-MM-DD): con fecha, el evento se oculta solo de la app cuando pasa el último día.
+    cols: ['id', 'titulo', 'dia', 'mes', 'emoji', 'color', 'lugar', 'horario', 'tel', 'desc', 'info', 'tags', 'fecha', 'fecha_fin'],
   },
   servicios: {
     table: 'servicios', order: 'cat, nombre', json: [], filterable: ['cat'],
@@ -82,17 +83,33 @@ async function listHandler(env, key, searchParams, admin) {
     binds.push(searchParams.get(filterParam));
   }
   const conVisible = cfg.visible && !admin;
-  const armar = (filtrarVisible) => {
-    const w = filtrarVisible ? [...where, 'COALESCE(visible, 1) = 1'] : where;
-    return `SELECT * FROM ${cfg.table}${w.length ? ' WHERE ' + w.join(' AND ') : ''} ORDER BY ${cfg.order}`;
+  // Eventos con fecha: la app solo recibe los que no pasaron (hora de Argentina, UTC-3).
+  // Sin fecha (Todo el año, Temporada o cargados a mano) se muestran siempre.
+  const conFecha = key === 'eventos';
+  const filtraFecha = conFecha && !admin;
+  const hoyAR = new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(0, 10);
+  const armar = (completo) => {
+    const w = [...where];
+    const b = [...binds];
+    if (completo && conVisible) w.push('COALESCE(visible, 1) = 1');
+    if (completo && filtraFecha) {
+      w.push("(fecha IS NULL OR fecha = '' OR COALESCE(NULLIF(fecha_fin, ''), fecha) >= ?)");
+      b.push(hoyAR);
+    }
+    const orden = completo && conFecha
+      ? "CASE WHEN fecha IS NULL OR fecha = '' THEN 1 ELSE 0 END, fecha, mes, dia"
+      : cfg.order;
+    return { sql: `SELECT * FROM ${cfg.table}${w.length ? ' WHERE ' + w.join(' AND ') : ''} ORDER BY ${orden}`, b };
   };
   let results;
   try {
-    ({ results } = await env.DB.prepare(armar(conVisible)).bind(...binds).all());
+    const q = armar(true);
+    ({ results } = await env.DB.prepare(q.sql).bind(...q.b).all());
   } catch (err) {
-    // Si todavía no se corrió la migración (no existe "visible"), se responde como antes.
-    if (!conVisible || !faltaColumna(err)) throw err;
-    ({ results } = await env.DB.prepare(armar(false)).bind(...binds).all());
+    // Si todavía no se corrió una migración (falta "visible" o "fecha"), se responde como antes.
+    if (!(conVisible || conFecha) || !faltaColumna(err)) throw err;
+    const q = armar(false);
+    ({ results } = await env.DB.prepare(q.sql).bind(...q.b).all());
   }
   return results.map((row) => parseJsonFields(row, cfg.json));
 }
