@@ -1,4 +1,5 @@
 import { handleRio } from './rio.js';
+import { manejarCuentas } from './auth.js';
 
 // Cada tabla: columnas permitidas (solo esas se guardan), orden, campos JSON y filtros.
 // private: true  -> también el GET pide la clave de admin (datos de clientes, no son públicos).
@@ -41,6 +42,14 @@ const TABLES = {
   notificaciones: {
     table: 'notificaciones', order: 'fecha, hora', json: [], filterable: ['estado', 'tema'], private: true,
     cols: ['id', 'estado', 'tema', 'cliente_id', 'titulo', 'texto', 'abre', 'cuando', 'fecha', 'hora', 'dia_semana', 'creada'],
+  },
+  manual: {
+    table: 'manual', order: 'orden, titulo', json: [], filterable: [], private: true,
+    cols: ['id', 'titulo', 'emoji', 'orden', 'resumen', 'cuerpo', 'actualizado'],
+  },
+  notas: {
+    table: 'notas', order: 'hecha, recordar, creada DESC', json: [], filterable: ['cliente_id'], private: true,
+    cols: ['id', 'texto', 'cliente_id', 'recordar', 'hecha', 'creada'],
   },
 };
 
@@ -165,7 +174,7 @@ export default {
     const headers = {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, X-Admin-Key',
+      'Access-Control-Allow-Headers': 'Content-Type, X-Admin-Key, Authorization',
       'Content-Type': 'application/json; charset=utf-8',
     };
     const json = (data, status = 200) => new Response(JSON.stringify(data), { status, headers });
@@ -178,6 +187,12 @@ export default {
       // GET /api/admin/ping  -> el panel prueba la clave sin tocar datos
       if (pathname === '/api/admin/ping') {
         return admin ? json({ ok: true }) : json({ error: 'No autorizado' }, 401);
+      }
+
+      // Cuentas de usuario con Google: /api/auth/google, /api/auth/logout, /api/me
+      if (pathname.startsWith('/api/auth/') || pathname === '/api/me') {
+        const r = await manejarCuentas(request, env, pathname, json);
+        if (r) return r;
       }
 
       // GET /api/rio  (altura del río Uruguay en Colón, desde Prefectura)

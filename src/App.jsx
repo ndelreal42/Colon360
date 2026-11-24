@@ -20,6 +20,9 @@ import AhoraModePage from "./components/AhoraModePage";
 import { useRioAltura } from "./hooks/useRioAltura.js";
 import { useLugares } from "./hooks/useLugares.js";
 import { useEventos } from "./hooks/useEventos.js";
+import CuentaPage from "./components/CuentaPage.jsx";
+import BienvenidaCuenta, { bienvenidaDescartada } from "./components/BienvenidaCuenta.jsx";
+import { leerSesion, verificarSesion, loginDisponible } from "./lib/cuenta.js";
 
 
 const quitarAcentos = (t) => String(t||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();
@@ -41,6 +44,10 @@ const { data: eventosAPI } = useEventos();
   });
   const [detail, setDetail] = useState(null);
   const detailRef = useRef(null);
+  // Cuenta opcional con Google: null = sin cuenta. Al abrir la app se confirma que la sesión siga valiendo.
+  const [sesion, setSesion] = useState(() => leerSesion());
+  useEffect(()=>{ if(leerSesion()) verificarSesion().then(setSesion); },[]);
+  const [bienvenida, setBienvenida] = useState(() => !leerSesion() && loginDisponible() && !bienvenidaDescartada());
   const [mapFilter, setMapFilter] = useState("Todos");
   const [selectedMarker, setSelectedMarker] = useState(null);
   const [time, setTime] = useState(new Date());
@@ -292,6 +299,10 @@ const { data: eventosAPI } = useEventos();
                   <div style={{fontSize:8,color:"rgba(255,255,255,0.6)",letterSpacing:2,textTransform:"uppercase",marginTop:1}}>Entre Ríos, Argentina</div>
                 </div>
               </div>
+              <button onClick={()=>go("cuenta")} aria-label={sesion?"Mi cuenta":"Ajustes"} style={{pointerEvents:"auto",position:"relative",width:42,height:42,borderRadius:"50%",background:"rgba(0,0,0,0.28)",backdropFilter:"blur(6px)",border:"1.5px solid rgba(255,196,61,0.9)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0,flexShrink:0}}>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                {sesion && <span style={{position:"absolute",top:1,right:1,width:11,height:11,borderRadius:"50%",background:"#34C759",border:"2px solid #fff"}}/>}
+              </button>
             </div>
 
           </div>
@@ -558,6 +569,9 @@ const { data: eventosAPI } = useEventos();
       {/* ══ MAPA ══ */}
       {tab==="mapa" && <Suspense fallback={<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",color:"#aaa",fontSize:13}}>Cargando mapa…</div>}><MapView mapFilter={mapFilter} setMapFilter={setMapFilter} mapCats={MAPA_CATS} lugares={armarLugaresMapa(lugaresAPI)} onVer={openDetail} go={go} /></Suspense>}
 
+      {/* ══ CUENTA / AJUSTES ══ */}
+      {tab==="cuenta" && <CuentaPage go={go} sesion={sesion} setSesion={setSesion}/>}
+
       {/* ══ SERVICIOS ══ */}
       {tab==="servicios" && <ServiciosPage go={go}/>}
 
@@ -734,6 +748,11 @@ const { data: eventosAPI } = useEventos();
             OK
           </button>
         </div>
+      )}
+
+      {/* Bienvenida: invita a entrar con Google al abrir la app (sin cuenta, solo en la app Android). Se puede "Entrar sin cuenta". */}
+      {bienvenida && !sesion && (
+        <BienvenidaCuenta onEntro={(ses)=>{setSesion(ses);setBienvenida(false);}} onSinCuenta={()=>setBienvenida(false)}/>
       )}
 
       <BottomNav tab={tab} go={go}/>

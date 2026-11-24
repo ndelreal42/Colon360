@@ -10,3 +10,7 @@ database_id = "7ba123fb-3781-4b54-bdc2-1c29067b49d2"
 [[r2_buckets]]
 binding = "FOTOS"
 bucket_name = "colon360-fotos"
+
+[vars]
+# ID del cliente "Colon360 Web" de Google Cloud (no es secreto). El Worker verifica que los tokens de Google sean de este cliente.
+WEB_CLIENT_ID = "341901557376-eoohasgumo5le22064pm7r2t43oqavgu.apps.googleusercontent.com"
