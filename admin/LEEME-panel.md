@@ -27,3 +27,13 @@ Abrir el panel con `?demo` al final de la dirección, o tocar "Probar con datos 
 ## Qué cambia en la app (sin versión nueva de Google Play)
 - Fichas y clientes "Ocultos" dejan de aparecer en la app (la API solo manda las visibles).
 - Todo lo demás se ve igual que hoy.
+
+## Manual y Notas (agregado 21/11/2026)
+- Manual: procedimientos paso a paso (se tildan mientras los hacés) y se editan desde el panel.
+  La primera vez, botón "Cargar el manual base".
+- Notas: botón flotante "Nota" en todas las pantallas; se puede pegar a un cliente y ponerle día para recordar.
+- Instalación (una sola vez), desde la carpeta server:
+    npx wrangler d1 execute colon360 --remote --file=migracion-manual-notas.sql
+    npx wrangler deploy
+  y desde la carpeta admin:
+    npx wrangler pages deploy . --project-name=colon360-admin
