@@ -12,6 +12,7 @@ import PlannerPage from "./components/PlannerPage.jsx";
 import ServiciosPage from "./components/ServiciosPage.jsx";
 import { AGENDA_POOL } from "./lib/eventos.js";
 import JuegosPage from "./components/JuegosPage.jsx";
+import Consejos from "./components/Consejos.jsx";
 import RelaxPage from "./components/RelaxPage.jsx";
 import BottomNav from "./components/BottomNav.jsx";
 // El mapa se descarga recién cuando alguien abre esa pantalla (así la app inicia más liviana).
@@ -66,6 +67,7 @@ const { data: eventosAPI } = useEventos();
   const [permStep, setPermStep] = useState(null); // null | 'gps' | 'notif'
   const [agendaIdx] = useState(() => Math.floor(Math.random() * AGENDA_POOL.length));
   const [gpsBlocked, setGpsBlocked] = useState(false);
+  const [forzarConsejo, setForzarConsejo] = useState(0);
   const [juegoCategoria, setJuegoCategoria] = useState(null);
   const [juegoNotifShown, setJuegoNotifShown] = useState(false);
   const [juegoNotifVisible, setJuegoNotifVisible] = useState(false);
@@ -299,10 +301,13 @@ const { data: eventosAPI } = useEventos();
                   <div style={{fontSize:8,color:"rgba(255,255,255,0.6)",letterSpacing:2,textTransform:"uppercase",marginTop:1}}>Entre Ríos, Argentina</div>
                 </div>
               </div>
+              <div style={{pointerEvents:"auto",display:"flex",alignItems:"center",gap:8}}>
+              <button aria-label="Ver un consejo" onClick={()=>setForzarConsejo(n=>n+1)} style={{pointerEvents:"auto",width:30,height:30,borderRadius:"50%",border:"1.5px solid rgba(255,255,255,0.7)",background:"rgba(0,0,0,0.25)",color:"#fff",fontSize:15,fontWeight:800,cursor:"pointer",fontFamily:"inherit",padding:0,backdropFilter:"blur(4px)"}}>?</button>
               <button onClick={()=>go("cuenta")} aria-label={sesion?"Mi cuenta":"Ajustes"} style={{pointerEvents:"auto",position:"relative",width:42,height:42,borderRadius:"50%",background:"rgba(0,0,0,0.28)",backdropFilter:"blur(6px)",border:"1.5px solid rgba(255,196,61,0.9)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0,flexShrink:0}}>
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
                 {sesion && <span style={{position:"absolute",top:1,right:1,width:11,height:11,borderRadius:"50%",background:"#34C759",border:"2px solid #fff"}}/>}
               </button>
+              </div>
             </div>
 
           </div>
@@ -311,7 +316,7 @@ const { data: eventosAPI } = useEventos();
           <div style={{flex:1,background:"#f2f4f8",overflow:"auto",display:"flex",flexDirection:"column",padding:"10px 14px",paddingBottom:"calc(env(safe-area-inset-bottom) + 72px)",gap:8}}>
 
             {/* TARJETA ESTADO DEL RÍO */}
-            <div style={{background:"#fff",borderRadius:16,padding:"12px 14px",boxShadow:"0 2px 10px rgba(0,0,0,0.07)"}}>
+            <div data-tut="rio" style={{background:"#fff",borderRadius:16,padding:"12px 14px",boxShadow:"0 2px 10px rgba(0,0,0,0.07)"}}>
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                 <div style={{display:"flex",alignItems:"center",gap:10}}>
                   <span style={{fontSize:24}}>🌊</span>
@@ -342,7 +347,7 @@ const { data: eventosAPI } = useEventos();
 
             {/* EXPLORAR COLÓN — grilla 2×2 */}
             <div style={{fontSize:13,fontWeight:800,color:"#1a1a2e",letterSpacing:-0.2}}>Explorar Colón</div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+            <div data-tut="explorar" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
               {[
                 {tab:"alojamientos", icon:"🛏️", label:"Alojamiento",  sub:"Hoteles y cabañas",  color:"#2E7D32"},
                 {tab:"atractivos",   icon:"🌴", label:"Atractivos",   sub:"Lugares para visitar",color:"#795548"},
@@ -363,7 +368,7 @@ const { data: eventosAPI } = useEventos();
 
             {/* ¿QUÉ HAGO AHORA? — botón grande con una recomendación */}
             {(()=>{const rec=getRecomendacionAhora(new Date(),clima); return (
-            <button onClick={()=>go("ahoramode")} style={{width:"100%",flex:1,minHeight:108,background:"linear-gradient(135deg,#F9A825,#FF6F00)",border:"none",borderRadius:18,padding:"12px 14px",cursor:"pointer",fontFamily:"inherit",display:"flex",flexDirection:"column",justifyContent:"space-between",gap:9,boxShadow:"0 6px 18px rgba(249,168,37,0.42)",boxSizing:"border-box",textAlign:"left"}}>
+            <button data-tut="ahora" onClick={()=>go("ahoramode")} style={{width:"100%",flex:1,minHeight:108,background:"linear-gradient(135deg,#F9A825,#FF6F00)",border:"none",borderRadius:18,padding:"12px 14px",cursor:"pointer",fontFamily:"inherit",display:"flex",flexDirection:"column",justifyContent:"space-between",gap:9,boxShadow:"0 6px 18px rgba(249,168,37,0.42)",boxSizing:"border-box",textAlign:"left"}}>
               <div style={{display:"flex",alignItems:"center",gap:12}}>
                 <div style={{width:44,height:44,borderRadius:13,background:"rgba(255,255,255,0.22)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:25,flexShrink:0}}>⚡</div>
                 <div style={{flex:1}}>
@@ -755,6 +760,7 @@ const { data: eventosAPI } = useEventos();
         <BienvenidaCuenta onEntro={(ses)=>{setSesion(ses);setBienvenida(false);}} onSinCuenta={()=>setBienvenida(false)}/>
       )}
 
+      <Consejos tab={tab} forzar={forzarConsejo}/>
       <BottomNav tab={tab} go={go}/>
     </div>
   );

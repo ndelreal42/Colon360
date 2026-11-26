@@ -144,7 +144,7 @@ export function abrirMaps(lat, lng, nombre) {
     : `${lat},${lng}`;
   window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, '_blank');
 }
-export const WA_MSG = encodeURIComponent("Hola! Te escribo desde la app Colón 360\nTe queria consultar:");
+export const WA_MSG = encodeURIComponent("¡Hola! Te escribo desde la app Colón 360\nQuería consultarte:");
 export function abrirContacto(tel) {
   if (!tel || tel.includes('Consultar') || tel === '—') return;
   const clean = tel.replace(/[^\d+]/g, '');

@@ -1,7 +1,7 @@
 
 export default function BottomNav({tab, go}) {
   return (
-    <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:430,zIndex:300,background:"rgba(255,255,255,0.97)",backdropFilter:"blur(20px)",borderTop:"1px solid rgba(240,237,230,0.9)",display:"flex",padding:"8px 8px 14px",boxShadow:"0 -4px 24px rgba(0,0,0,0.07)"}}>
+    <div data-tut="nav" style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:430,zIndex:300,background:"rgba(255,255,255,0.97)",backdropFilter:"blur(20px)",borderTop:"1px solid rgba(240,237,230,0.9)",display:"flex",padding:"8px 8px 14px",boxShadow:"0 -4px 24px rgba(0,0,0,0.07)"}}>
       {[
         {id:"inicio",emoji:"🏠",label:"Inicio"},
         {id:"playas",emoji:"🏖️",label:"Playas"},
