@@ -24,7 +24,8 @@ const CSS_APP = `
 .mp .results button:hover,.mp .results button:focus-visible{background:#f5f7fa}
 .mp .results small{font:700 10px 'DM Sans',system-ui,sans-serif;color:#9a9a9a;letter-spacing:.08em}
 .mp .chip{font:700 12px 'DM Sans',system-ui,sans-serif;color:#1a1a2e;background:#fff;border:none;border-radius:20px;padding:8px 14px;box-shadow:0 2px 8px rgba(0,0,0,.2)}
-.mp .chips{padding:2px 2px 8px}
+.mp .chips{flex-wrap:wrap;overflow:visible;gap:6px;padding:2px 2px 6px}
+.mp .chip{font-size:11.5px;padding:6px 11px;gap:5px}
 .mp .chip[aria-pressed="false"]{background:rgba(255,255,255,.9);color:#8a8a8a;box-shadow:0 1px 5px rgba(0,0,0,.14);transform:none}
 .mp .chip.alt{background:#1a1a2e;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.25)}
 `;
