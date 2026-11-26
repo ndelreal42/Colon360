@@ -11,12 +11,15 @@ let yaMostradoEnEstaSesion = false;
 export const CONSEJOS = [
   { id: "bienvenida", tab: "inicio", icon: "👋", titulo: "¡Bienvenido a Colón 360!", texto: "Tu guía de Colón en el bolsillo. Cada tanto te vamos a mostrar un truco. Cuando quieras uno, tocá el ? de arriba." },
   { id: "ahora", tab: "inicio", target: "ahora", icon: "⚡", titulo: "¿Qué hago ahora?", texto: "Te propone planes gratis o baratos según la hora, el clima y dónde estés. Cada vez salen ideas distintas." },
+  { id: "mas", tab: "inicio", target: "mas", icon: "➕", titulo: "Hacelo tuyo", texto: "Con el + elegís qué 4 botones ver en Explorar Colón: Alojamiento, Deporte, Belleza y más." },
   { id: "rio", tab: "inicio", target: "rio", icon: "🌊", titulo: "El río y el clima", texto: "Mirá cómo está el río Uruguay y el clima de hoy antes de salir." },
   { id: "playas", tab: "playas", icon: "🏖️", titulo: "Paradores y campings", texto: "Entrá a una playa y mirá sus paradores, carritos y campings. Podés filtrar por lo que buscás." },
   { id: "ruleta", tab: "gastronomia", icon: "🎰", titulo: "¿No sabés qué comer?", texto: "Probá la ruleta: elegí qué te gusta y que decida la suerte. En cada lugar podés ver la carta." },
   { id: "alojamiento", tab: "alojamientos", icon: "🛏️", titulo: "Consultá disponibilidad", texto: "Abrí un alojamiento, elegí las fechas y se arma el mensaje de WhatsApp listo para enviar." },
   { id: "mapa", tab: "mapa", icon: "📍", titulo: "El mapa de Colón", texto: "Tocá un lugar para ver su ficha y cómo llegar. También podés ver el mapa real." },
   { id: "agenda", tab: "atractivos", icon: "🎟️", titulo: "Eventos y agenda", texto: "En la solapa Eventos están las fiestas, ferias y actividades que se vienen en Colón." },
+  { id: "belleza", tab: "belleza", icon: "💅", titulo: "Pedí tu turno", texto: "Entrá a un local, elegí día y horario y se arma el WhatsApp listo para enviar." },
+  { id: "deporte", tab: "deporte", icon: "⚽", titulo: "Canchas y partidos", texto: "Reservá cancha de fútbol 5 o pádel y mirá los partidos de los clubes de Colón." },
   { id: "planner", tab: "planner", icon: "🗓️", titulo: "Armá tu itinerario", texto: "Elegí qué querés hacer y te ayudamos a organizar tu día." },
 ];
 

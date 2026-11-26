@@ -28,6 +28,17 @@ import { leerSesion, verificarSesion, loginDisponible } from "./lib/cuenta.js";
 
 const quitarAcentos = (t) => String(t||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();
 
+// Todos los botones que se pueden mostrar en "Explorar Colón". El usuario elige 4 con el botón "+".
+const TILES_EXPLORAR = [
+  {tab:"alojamientos", icon:"🛏️", label:"Alojamiento",  sub:"Hoteles y cabañas",    color:"#2E7D32"},
+  {tab:"atractivos",   icon:"🌴", label:"Atractivos",   sub:"Lugares para visitar", color:"#795548"},
+  {tab:"servicios",    icon:"🗂️", label:"Servicios",    sub:"Salud, info y más",    color:"#0097A7"},
+  {tab:"planner",      icon:"🗓️", label:"Planner",      sub:"Armá tu itinerario",   color:"#1565C0"},
+  {tab:"deporte",      icon:"⚽", label:"Deporte",      sub:"Canchas y partidos",   color:"#E65100"},
+  {tab:"belleza",      icon:"💅", label:"Belleza",      sub:"Peluquería, uñas y más", color:"#C2185B"},
+];
+const TILES_POR_DEFECTO = ["alojamientos","atractivos","servicios","planner"];
+
 // ─── MAIN ─────────────────────────────────────────────────────────────────────
 export default function Colon360() {
   const { data: playasAPI } = useLugares("playa");
@@ -38,11 +49,24 @@ const { data: eventosAPI } = useEventos();
   // Los paradores/carritos y campings se muestran dentro de la ficha de su playa, no en los listados generales.
   const esDePlaya = l => l.tipo==="parador" || l.tipo==="camping";
   const paradoresAPI = lugaresTodos.filter(esDePlaya);
-  const lugaresAPI = lugaresTodos.filter(l=>!esDePlaya(l));
+  const lugaresAPI = lugaresTodos.filter(l=>!esDePlaya(l) && l.tipo!=="cancha" && l.tipo!=="belleza");
+  const canchasAPI = lugaresTodos.filter(l=>l.tipo==="cancha");
+  const bellezaAPI = lugaresTodos.filter(l=>l.tipo==="belleza");
+  const esDeporteEv = e=>(e.tags||[]).some(t=>["deporte","partido","torneo"].includes(quitarAcentos(t)));
+  const deporteTodo = [...canchasAPI, ...lugaresAPI.filter(l=>l.cat==="Deporte"||quitarAcentos(l.categoria)==="deporte"), ...eventosAPI.filter(esDeporteEv)];
   const [tab, setTab] = useState(() => {
     const p = new URLSearchParams(window.location.search).get('tab');
     return p || 'inicio';
   });
+  const [deporteFilter, setDeporteFilter] = useState("Todo");
+  const [bellezaFilter, setBellezaFilter] = useState("Todo");
+  // Botones de "Explorar Colón" que el usuario eligió mostrar en su Inicio (se guardan en el celular).
+  const [tilesElegidos, setTilesElegidos] = useState(()=>{
+    try { const g = JSON.parse(localStorage.getItem("c360_tiles")||"null"); if (Array.isArray(g)) { const ok = g.filter(id=>TILES_EXPLORAR.some(t=>t.tab===id)); if (ok.length===4) return ok; } } catch {}
+    return TILES_POR_DEFECTO;
+  });
+  const [editandoTiles, setEditandoTiles] = useState(false);
+  const guardarTiles = (lista)=>{ setTilesElegidos(lista); try { localStorage.setItem("c360_tiles", JSON.stringify(lista)); } catch {} };
   const [detail, setDetail] = useState(null);
   const detailRef = useRef(null);
   // Cuenta opcional con Google: null = sin cuenta. Al abrir la app se confirma que la sesión siga valiendo.
@@ -346,14 +370,12 @@ const { data: eventosAPI } = useEventos();
             </div>
 
             {/* EXPLORAR COLÓN — grilla 2×2 */}
-            <div style={{fontSize:13,fontWeight:800,color:"#1a1a2e",letterSpacing:-0.2}}>Explorar Colón</div>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+              <div style={{fontSize:13,fontWeight:800,color:"#1a1a2e",letterSpacing:-0.2}}>Explorar Colón</div>
+              <button data-tut="mas" aria-label="Elegir qué botones mostrar" onClick={()=>setEditandoTiles(true)} style={{width:28,height:28,borderRadius:"50%",border:"1.5px solid #d6d6d6",background:"#fff",color:"#555",fontSize:18,lineHeight:1,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",padding:0}}>+</button>
+            </div>
             <div data-tut="explorar" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-              {[
-                {tab:"alojamientos", icon:"🛏️", label:"Alojamiento",  sub:"Hoteles y cabañas",  color:"#2E7D32"},
-                {tab:"atractivos",   icon:"🌴", label:"Atractivos",   sub:"Lugares para visitar",color:"#795548"},
-                {tab:"servicios",    icon:"🗂️", label:"Servicios",    sub:"Salud, info y más",   color:"#0097A7"},
-                {tab:"planner",      icon:"🗓️", label:"Planner",      sub:"Armá tu itinerario",  color:"#1565C0"},
-              ].map(item=>(
+              {tilesElegidos.map(id=>TILES_EXPLORAR.find(t=>t.tab===id)).filter(Boolean).map(item=>(
                 <button key={item.tab} onClick={()=>go(item.tab)} style={{background:"#fff",border:"1px solid #e8e8e8",borderRadius:14,padding:"12px 10px",cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:10,boxShadow:"0 1px 6px rgba(0,0,0,0.05)",minWidth:0,width:"100%"}}>
                   <div style={{width:40,height:40,borderRadius:11,background:item.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>
                     {item.icon}
@@ -388,18 +410,20 @@ const { data: eventosAPI } = useEventos();
       )}
 
       {/* ══ LIST PAGES ══ */}
-      {["playas","gastronomia","alojamientos","eventos","atractivos"].includes(tab) && (()=>{
+      {["playas","gastronomia","alojamientos","eventos","atractivos","deporte","belleza"].includes(tab) && (()=>{
         const configs = {
           playas:       {title:"Playas",       sub:"Arena, río y atardeceres únicos",        data:playasAPI,       grad:"linear-gradient(135deg,#1E88E5,#42A5F5)"},
           gastronomia:  {title:"Gastronomía",  sub:"Los mejores sabores de Colón",           data:restaurantesAPI, grad:"linear-gradient(135deg,#F9A825,#f4b90a)"},
           alojamientos: {title:"Alojamientos", sub:"Descansá como te merecés",               data:alojamientosAPI, grad:"linear-gradient(135deg,#2E7D32,#43A047)"},
           eventos:      {title:"Agenda 2026",  sub:"Eventos, ferias y actividades",          data:eventosAPI,      grad:"linear-gradient(135deg,#00695C,#00897B)"},
+          deporte:      {title:"Deporte",      sub:"Canchas, partidos y más",                data:deporteTodo,     grad:"linear-gradient(135deg,#E65100,#FB8C00)"},
+          belleza:      {title:"Belleza",      sub:"Peluquería, uñas, barbería y más",       data:bellezaAPI,      grad:"linear-gradient(135deg,#C2185B,#EC407A)"},
           atractivos:   {title: atrFilter==="Eventos" ? "Agenda 2026" : "Explorar Colón", sub: atrFilter==="Eventos" ? "Eventos, ferias y actividades" : "Todo lo que Colón tiene para ofrecerte", data:lugaresAPI, grad:"linear-gradient(135deg,#795548,#F9A825)"},
         };
         const {title,sub,data,grad} = configs[tab];
         // Etiqueta chica de la tarjeta: en alojamientos la categoría; en paradores/campings, "PARADOR · PLAYA NORTE".
         const etiquetaTipo = (item) => {
-          if (tab==="alojamientos") return item.categoria||item.tipo;
+          if (tab==="alojamientos" || item.tipo==="cancha" || item.tipo==="belleza") return item.categoria||item.tipo;
           if (item.tipo==="parador" || item.tipo==="camping") {
             const playa = playasAPI.find(p=>p.id===item.categoria);
             return playa ? `${item.tipo} · ${playa.nombre}` : item.tipo;
@@ -410,6 +434,9 @@ const { data: eventosAPI } = useEventos();
         const baseData =
           tab==="atractivos" && atrFilter==="Eventos"  ? eventosAPI :
           tab==="atractivos" && atrFilter!=="Todos"    ? data.filter(i=>i.cat===atrFilter) :
+          tab==="deporte" && deporteFilter==="Partidos" ? eventosAPI.filter(esDeporteEv) :
+          tab==="deporte" && deporteFilter!=="Todo"     ? data.filter(i=>quitarAcentos(i.categoria||i.cat).includes(quitarAcentos(deporteFilter))) :
+          tab==="belleza" && bellezaFilter!=="Todo"     ? data.filter(i=>quitarAcentos(i.categoria).includes(quitarAcentos(bellezaFilter)) || (i.tags||[]).some(t=>quitarAcentos(t).includes(quitarAcentos(bellezaFilter)))) :
           tab==="alojamientos" && alojFilter!=="Todos" ? data.filter(i=>quitarAcentos(i.categoria)===quitarAcentos(alojFilter)) :
           tab==="playas" && playaFilter==="Paradores" ? paradoresAPI.filter(i=>i.tipo==="parador") :
           tab==="playas" && playaFilter==="Campings"  ? paradoresAPI.filter(i=>i.tipo==="camping") :
@@ -484,6 +511,20 @@ const { data: eventosAPI } = useEventos();
                 <div style={{display:"flex",gap:7,paddingBottom:10,overflowX:"auto",scrollbarWidth:"none"}}>
                   {["Todo","Parrilla","Pescado","Pizza","Pastas","Café","Bar","Rotisería","Comidas rápidas","Cervecería","Panadería","Helados"].map(c=>(
                     <button key={c} onClick={()=>setGastroFilter(c)} style={{flexShrink:0,padding:"6px 14px",fontSize:11,fontWeight:700,borderRadius:20,cursor:"pointer",fontFamily:"inherit",background:gastroFilter===c?"rgba(255,255,255,0.97)":"rgba(255,255,255,0.15)",color:gastroFilter===c?"#E65100":"rgba(255,255,255,0.9)",border:"none",transition:"all .2s"}}>{c}</button>
+                  ))}
+                </div>
+              )}
+              {tab==="deporte" && (
+                <div style={{display:"flex",gap:7,paddingBottom:10,overflowX:"auto",scrollbarWidth:"none"}}>
+                  {["Todo","Fútbol 5","Pádel","Partidos"].map(c=>(
+                    <button key={c} onClick={()=>setDeporteFilter(c)} style={{flexShrink:0,padding:"6px 14px",fontSize:11,fontWeight:700,borderRadius:20,cursor:"pointer",fontFamily:"inherit",background:deporteFilter===c?"rgba(255,255,255,0.97)":"rgba(255,255,255,0.15)",color:deporteFilter===c?"#E65100":"rgba(255,255,255,0.85)",border:"1px solid rgba(255,255,255,0.3)"}}>{c}</button>
+                  ))}
+                </div>
+              )}
+              {tab==="belleza" && (
+                <div style={{display:"flex",gap:7,paddingBottom:10,overflowX:"auto",scrollbarWidth:"none"}}>
+                  {["Todo","Peluquería","Uñas","Barbería","Estética","Masajes"].map(c=>(
+                    <button key={c} onClick={()=>setBellezaFilter(c)} style={{flexShrink:0,padding:"6px 14px",fontSize:11,fontWeight:700,borderRadius:20,cursor:"pointer",fontFamily:"inherit",background:bellezaFilter===c?"rgba(255,255,255,0.97)":"rgba(255,255,255,0.15)",color:bellezaFilter===c?"#C2185B":"rgba(255,255,255,0.85)",border:"1px solid rgba(255,255,255,0.3)"}}>{c}</button>
                   ))}
                 </div>
               )}
@@ -758,6 +799,40 @@ const { data: eventosAPI } = useEventos();
       {/* Bienvenida: invita a entrar con Google al abrir la app (sin cuenta, solo en la app Android). Se puede "Entrar sin cuenta". */}
       {bienvenida && !sesion && (
         <BienvenidaCuenta onEntro={(ses)=>{setSesion(ses);setBienvenida(false);}} onSinCuenta={()=>setBienvenida(false)}/>
+      )}
+
+      {editandoTiles && (
+        <div onClick={()=>setEditandoTiles(false)} style={{position:"fixed",inset:0,zIndex:400,background:"rgba(0,0,0,0.45)",display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
+          <div onClick={e=>e.stopPropagation()} style={{width:"100%",maxWidth:430,background:"#fff",borderRadius:"22px 22px 0 0",padding:"18px 16px 22px",maxHeight:"85vh",overflowY:"auto"}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
+              <div style={{fontSize:16,fontWeight:800,color:"#1a1a2e",fontFamily:"'DM Sans',sans-serif"}}>Armá tu Inicio</div>
+              <button onClick={()=>setEditandoTiles(false)} aria-label="Cerrar" style={{border:"none",background:"#f1f1f1",width:30,height:30,borderRadius:"50%",fontSize:16,cursor:"pointer"}}>✕</button>
+            </div>
+            <div style={{fontSize:12,color:"#777",marginBottom:12}}>Elegí los 4 botones que querés ver en "Explorar Colón". Tocá uno para ponerlo; si ya hay 4, reemplaza al más viejo.</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+              {TILES_EXPLORAR.map(t=>{
+                const on = tilesElegidos.includes(t.tab);
+                const toggle = ()=>{
+                  if (on) { if (tilesElegidos.length>4) guardarTiles(tilesElegidos.filter(x=>x!==t.tab)); }
+                  else if (tilesElegidos.length<4) guardarTiles([...tilesElegidos,t.tab]);
+                  else guardarTiles([...tilesElegidos.slice(1),t.tab]);
+                };
+                return (
+                  <button key={t.tab} onClick={toggle} style={{position:"relative",background:on?`${t.color}14`:"#fff",border:`2px solid ${on?t.color:"#e8e8e8"}`,borderRadius:14,padding:"12px 10px",cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:10,textAlign:"left"}}>
+                    <div style={{width:38,height:38,borderRadius:11,background:t.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:21,flexShrink:0}}>{t.icon}</div>
+                    <div style={{minWidth:0}}>
+                      <div style={{fontSize:13,fontWeight:700,color:"#1a1a2e",lineHeight:1.2}}>{t.label}</div>
+                      <div style={{fontSize:10,color:"#999",marginTop:2}}>{t.sub}</div>
+                    </div>
+                    {on && <span style={{position:"absolute",top:6,right:8,fontSize:12,color:t.color,fontWeight:800}}>✓</span>}
+                  </button>
+                );
+              })}
+            </div>
+            <button onClick={()=>guardarTiles(TILES_POR_DEFECTO)} style={{marginTop:12,width:"100%",border:"none",background:"none",color:"#888",fontSize:12,cursor:"pointer",fontFamily:"inherit",textDecoration:"underline"}}>Volver a los de siempre</button>
+            <button onClick={()=>setEditandoTiles(false)} style={{marginTop:6,width:"100%",border:"none",background:"#1a1a2e",color:"#fff",borderRadius:14,padding:"13px",fontSize:13,fontWeight:800,cursor:"pointer",fontFamily:"inherit"}}>Listo</button>
+          </div>
+        </div>
       )}
 
       <Consejos tab={tab} forzar={forzarConsejo}/>

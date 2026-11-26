@@ -8,7 +8,7 @@ const iso = (y, m, d) => `${y}-${String(m + 1).padStart(2, "0")}-${String(d).pad
 const txt = (s) => { const [y, m, d] = s.split("-").map(Number); return `${d} de ${MESES_MIN[m - 1]}`; };
 
 // Calendario para elegir un rango (llegada → salida). Fechas como "YYYY-MM-DD".
-export default function CalendarioRango({ desde, hasta, onChange, minISO, color = "#2E7D32" }) {
+export default function CalendarioRango({ desde, hasta, onChange, minISO, color = "#2E7D32", modo = "rango" }) {
   const base = desde ? desde.split("-").map(Number) : (minISO || iso(new Date().getFullYear(), new Date().getMonth(), 1)).split("-").map(Number);
   const [vista, setVista] = useState({ y: base[0], m: base[1] - 1 });
 
@@ -24,6 +24,7 @@ export default function CalendarioRango({ desde, hasta, onChange, minISO, color 
 
   const elegir = (f) => {
     if (minISO && f < minISO) return;
+    if (modo === "dia") { onChange(f, ""); return; }
     if (!desde || (desde && hasta)) onChange(f, "");
     else if (f <= desde) onChange(f, "");
     else onChange(desde, f);
@@ -68,7 +69,8 @@ export default function CalendarioRango({ desde, hasta, onChange, minISO, color 
         </div>
       </div>
       <div style={{ borderTop: "1px solid #eee", padding: "12px 14px", fontSize: 12.5, color: "#777" }}>
-        {desde && hasta ? <>Del <b style={{ color: "#222" }}>{txt(desde)}</b> al <b style={{ color: "#222" }}>{txt(hasta)}</b> · {noches} {noches === 1 ? "noche" : "noches"}</>
+        {modo === "dia" ? (desde ? <>Día elegido: <b style={{ color: "#222" }}>{txt(desde)}</b></> : "Tocá el día que querés")
+          : desde && hasta ? <>Del <b style={{ color: "#222" }}>{txt(desde)}</b> al <b style={{ color: "#222" }}>{txt(hasta)}</b> · {noches} {noches === 1 ? "noche" : "noches"}</>
           : desde ? <>Llegada: <b style={{ color: "#222" }}>{txt(desde)}</b> · ahora elegí la salida</>
           : "Tocá el día de llegada"}
       </div>

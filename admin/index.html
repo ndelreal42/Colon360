@@ -319,25 +319,26 @@ function parsearUbicacion(texto) {
 const cercaDeColon = (lat, lng) => Math.abs(lat + 32.22) < 0.6 && Math.abs(lng + 58.14) < 0.6;
 
 // ---------- catálogos ----------
-const CATS = ["Alojamiento", "Comer", "Deportes", "Servicios", "Otros"];
+const CATS = ["Alojamiento", "Comer", "Belleza", "Deportes", "Servicios", "Otros"];
 const CAT_COLOR = { Alojamiento: "#A9D6C4", Comer: "#EFC766", Deportes: "#C5DBA2", Servicios: "#E8B47A", Otros: "#F3DB9E" };
-const RUBROS = { Alojamiento: ["Hotel", "Departamento", "Casa", "Cabaña", "Bungalow"], Comer: ["Restaurante", "Parrilla", "Café", "Heladería", "Bar", "Parador"], Deportes: ["Gimnasio", "Pilates", "Cancha", "Otro"], Servicios: ["Lavadero", "Gomería", "Tintorería", "Otro"], Otros: ["Mercería", "Verdulería", "Kiosco", "Otro"] };
+const RUBROS = { Alojamiento: ["Hotel", "Departamento", "Casa", "Cabaña", "Bungalow"], Comer: ["Restaurante", "Parrilla", "Café", "Heladería", "Bar", "Parador"], Deportes: ["Gimnasio", "Pilates", "Cancha", "Otro"], Belleza: ["Peluquería", "Uñas", "Barbería", "Estética", "Masajes", "Otro"], Servicios: ["Lavadero", "Gomería", "Tintorería", "Otro"], Otros: ["Mercería", "Verdulería", "Kiosco", "Otro"] };
 const ESTADOS = ["Prueba gratis", "Activo", "Vencido", "Sin plan", "Baja"];
 const ORIGENES = ["Alta manual", "WhatsApp", "Formulario web", "n8n", "Recomendación"];
 // Tipos que entiende la app hoy (campo "tipo" de lugares). "atrativo" está escrito así en la base.
 const TIPOS = [
   { v: "playa", l: "Playa" }, { v: "restaurante", l: "Restaurante" }, { v: "cafe", l: "Café" }, { v: "hotel", l: "Alojamiento" },
-  { v: "parador", l: "Parador / carrito" }, { v: "camping", l: "Camping" }, { v: "atrativo", l: "Atractivo" }, { v: "cancha", l: "Cancha" },
+  { v: "parador", l: "Parador / carrito" }, { v: "camping", l: "Camping" }, { v: "atrativo", l: "Atractivo" }, { v: "cancha", l: "Cancha" }, { v: "belleza", l: "Belleza (peluquería, uñas…)" },
 ];
 const tipoLabel = (v) => (TIPOS.find((t) => t.v === v) || { l: v || "—" }).l;
 const TIPOS_HOTEL = ["Hotel", "Departamento", "Casa", "Cabaña", "Bungalow"];
 const COLORES_APP = ["#2E7D32", "#1E88E5", "#F9A825", "#795548", "#1565C0", "#e53935", "#42A5F5"];
-const EMOJI_CAT = { Alojamiento: "🏡", Comer: "🍽️", Deportes: "🏋️", Servicios: "🔧", Otros: "🛍️" };
-const COLOR_CAT = { Alojamiento: "#1E88E5", Comer: "#F9A825", Deportes: "#2E7D32", Servicios: "#795548", Otros: "#1565C0" };
+const EMOJI_CAT = { Alojamiento: "🏡", Comer: "🍽️", Belleza: "💅", Deportes: "🏋️", Servicios: "🔧", Otros: "🛍️" };
+const COLOR_CAT = { Alojamiento: "#1E88E5", Comer: "#F9A825", Belleza: "#C2185B", Deportes: "#2E7D32", Servicios: "#795548", Otros: "#1565C0" };
 function tipoDesdeCliente(cat, rubro) {
   if (cat === "Alojamiento") return { tipo: "hotel", categoria: RUBROS.Alojamiento.includes(rubro) ? rubro : "Hotel" };
   if (cat === "Comer") return { tipo: rubro === "Café" ? "cafe" : rubro === "Parador" ? "parador" : "restaurante", categoria: "" };
   if (cat === "Deportes" && rubro === "Cancha") return { tipo: "cancha", categoria: "" };
+  if (cat === "Belleza") return { tipo: "belleza", categoria: ["Peluquería", "Uñas", "Barbería", "Estética", "Masajes"].includes(rubro) ? rubro : "" };
   return { tipo: norm(rubro || cat), categoria: "" };
 }
 
@@ -684,7 +685,9 @@ function editorFicha(f) {
   let catField;
   if (f.tipo === "hotel") catField = sel("fx.categoria", "Tipo de alojamiento", f.categoria, ["", ...TIPOS_HOTEL].map((v) => ({ v, l: v || "—" })));
   else if (f.tipo === "parador" || f.tipo === "camping") catField = sel("fx.categoria", "¿En qué playa está?", f.categoria, [{ v: "", l: "— Elegí la playa —" }, ...playas.map((p) => ({ v: p.id, l: p.nombre + " (" + p.id + ")" }))]);
-  else catField = inp("fx.categoria", 'Categoría <span class="h">(opcional; cancha: ej. “Fútbol 5”)</span>', f.categoria);
+  else if (f.tipo === "belleza") catField = sel("fx.categoria", "Rubro de belleza", f.categoria, ["", "Peluquería", "Uñas", "Barbería", "Estética", "Masajes"].map((v) => ({ v, l: v || "—" })));
+  else if (f.tipo === "cancha") catField = sel("fx.categoria", "Deporte", f.categoria, ["", "Fútbol 5", "Pádel", "Fútbol 7", "Otro"].map((v) => ({ v, l: v || "—" })));
+  else catField = inp("fx.categoria", 'Categoría <span class="h">(opcional)</span>', f.categoria);
   const tiposOpts = TIPOS.some((t) => t.v === f.tipo) || !f.tipo ? TIPOS : [...TIPOS, { v: f.tipo, l: f.tipo }];
   const custom = !COLORES_APP.map((x) => x.toLowerCase()).includes(String(f.color || "").toLowerCase());
   return `${atras("fichas", "Volver a la lista")}

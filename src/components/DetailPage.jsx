@@ -9,6 +9,11 @@ export default function DetailPage({ item, onBack, paradores = [] }) {
   const [desde, setDesde] = useState("");
   const [hasta, setHasta] = useState("");
   const [personas, setPersonas] = useState(2);
+  // Turnos (canchas y belleza): día + hora (+ jugadores o servicio)
+  const [diaTurno, setDiaTurno] = useState("");
+  const [horaTurno, setHoraTurno] = useState("");
+  const [jugadores, setJugadores] = useState(String(item.categoria||"").toLowerCase().includes("pádel")||String(item.categoria||"").toLowerCase().includes("padel") ? 4 : 10);
+  const [servicioTurno, setServicioTurno] = useState("");
 
   // Sólo los alojamientos que tienen WhatsApp cargado muestran el formulario de consulta.
   // Dentro de una playa: sus carritos/paradores y sus campings (se vinculan con la playa por el ID en "Categoría").
@@ -21,6 +26,12 @@ export default function DetailPage({ item, onBack, paradores = [] }) {
   const cartaUrl = urlSegura(item.carta);
   const esParaComer = item.tipo === "restaurante" || item.tipo === "cafe";
   const esAlojamiento = item.tipo === "hotel";
+  const esCancha = item.tipo === "cancha";
+  const esBelleza = item.tipo === "belleza";
+  const horariosTurno = esCancha ? HORARIOS_CANCHA : HORARIOS_BELLEZA;
+  const serviciosBelleza = Array.isArray(item.tags) ? item.tags.filter(Boolean) : [];
+  const turnoOk = diaTurno && horaTurno;
+  const mensajeTurno = armarMensajeTurno({nombre:item.nombre, dia:diaTurno, hora:horaTurno, jugadores, servicio:servicioTurno, categoria:item.categoria, esCancha});
   const hoy = new Date();
   const hoyISO = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,"0")}-${String(hoy.getDate()).padStart(2,"0")}`;
   const fechasOk = desde && hasta && hasta > desde;
@@ -36,7 +47,7 @@ export default function DetailPage({ item, onBack, paradores = [] }) {
         <div style={{padding:"48px 0 16px", position:"relative", zIndex:1, display:"flex", alignItems:"center", gap:14}}>
           <button onClick={onBack} style={{background:"rgba(255,255,255,0.2)",border:"none",color:"#fff",width:38,height:38,borderRadius:"50%",fontSize:20,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontFamily:"inherit"}}>‹</button>
           <div style={{flex:1, minWidth:0}}>
-            {(item.tipo==="hotel" ? (item.categoria||item.tipo) : item.tipo) && <div style={{fontSize:10,color:"rgba(255,255,255,0.65)",letterSpacing:2,textTransform:"uppercase",marginBottom:3,fontFamily:"'DM Sans',sans-serif"}}>{item.tipo==="hotel" ? (item.categoria||item.tipo) : item.tipo}</div>}
+            {((item.tipo==="hotel"||item.tipo==="cancha"||item.tipo==="belleza") ? (item.categoria||item.tipo) : item.tipo) && <div style={{fontSize:10,color:"rgba(255,255,255,0.65)",letterSpacing:2,textTransform:"uppercase",marginBottom:3,fontFamily:"'DM Sans',sans-serif"}}>{item.tipo==="hotel" ? (item.categoria||item.tipo) : item.tipo}</div>}
             <h1 style={{fontFamily:"'DM Sans',sans-serif",fontSize:22,fontWeight:700,color:"#fff",lineHeight:1.15,margin:0,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.nombre || item.titulo}</h1>
           </div>
           <div style={{width:48,height:48,borderRadius:14,background:"rgba(255,255,255,0.2)",border:"1.5px solid rgba(255,255,255,0.35)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,flexShrink:0}}>{item.emoji}</div>
@@ -82,6 +93,49 @@ export default function DetailPage({ item, onBack, paradores = [] }) {
           <button onClick={()=>window.open(`https://wa.me/${waNumero}?text=${encodeURIComponent(`Hola, ${saludoSegunHora()}! Vi tu ${item.tipo} "${item.nombre}" en la app Colón 360 y quería consultarte. ¡Gracias!`)}`,"_blank")} style={{width:"100%",background:"linear-gradient(135deg,#25D366,#128C7E)",border:"none",borderRadius:14,padding:"13px",fontSize:13,fontWeight:800,color:"#fff",cursor:"pointer",fontFamily:"inherit",marginBottom:8}}>💬 Consultar por WhatsApp</button>
         )}
         {item.wa && <InfoRow icon="💬" label="WhatsApp" value="Consultar por WhatsApp" color="#25D366" onClick={()=>window.open(item.wa,'_blank')}/>}
+
+        {(esCancha || esBelleza) && (
+          <>
+            <div style={{fontSize:10,color:"#bbb",fontWeight:700,letterSpacing:2,textTransform:"uppercase",margin:"18px 0 10px",fontFamily:"'DM Sans',sans-serif"}}>{esCancha ? "AGENDAR TURNO" : "PEDIR TURNO"}</div>
+            {!waNumero ? (
+              <button disabled style={{width:"100%",background:"#e0e0e0",border:"none",borderRadius:14,padding:"13px",fontSize:13,fontWeight:800,color:"#fff",cursor:"not-allowed",fontFamily:"inherit",marginBottom:8}}>💬 WhatsApp próximamente</button>
+            ) : (
+              <div style={{marginBottom:14}}>
+                <CalendarioRango desde={diaTurno} hasta="" modo="dia" minISO={hoyISO} color={color} onChange={(d)=>setDiaTurno(d)}/>
+                <div style={{fontSize:11,fontWeight:700,color:"#888",margin:"12px 0 6px"}}>Horario</div>
+                <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+                  {horariosTurno.map(h=>(
+                    <button key={h} type="button" onClick={()=>setHoraTurno(h)} style={{padding:"7px 11px",borderRadius:20,border:`1.5px solid ${horaTurno===h?color:"#e0e0e0"}`,background:horaTurno===h?color:"#fff",color:horaTurno===h?"#fff":"#444",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{h}</button>
+                  ))}
+                </div>
+                {esCancha && (
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"#fff",border:"1.5px solid #e8e8e8",borderRadius:14,padding:"10px 14px",marginTop:12}}>
+                    <span style={{fontSize:13,fontWeight:700,color:"#333"}}>👥 Jugadores</span>
+                    <span style={{display:"flex",alignItems:"center",gap:12}}>
+                      <button type="button" onClick={()=>setJugadores(n=>Math.max(2,n-1))} style={{width:30,height:30,borderRadius:"50%",border:"none",background:"#f1f1f1",fontSize:18,cursor:"pointer"}}>−</button>
+                      <b style={{fontSize:15,minWidth:20,textAlign:"center"}}>{jugadores}</b>
+                      <button type="button" onClick={()=>setJugadores(n=>Math.min(30,n+1))} style={{width:30,height:30,borderRadius:"50%",border:"none",background:"#f1f1f1",fontSize:18,cursor:"pointer"}}>+</button>
+                    </span>
+                  </div>
+                )}
+                {esBelleza && serviciosBelleza.length>0 && (
+                  <>
+                    <div style={{fontSize:11,fontWeight:700,color:"#888",margin:"12px 0 6px"}}>¿Qué servicio querés?</div>
+                    <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+                      {serviciosBelleza.map(sv=>(
+                        <button key={sv} type="button" onClick={()=>setServicioTurno(servicioTurno===sv?"":sv)} style={{padding:"7px 11px",borderRadius:20,border:`1.5px solid ${servicioTurno===sv?color:"#e0e0e0"}`,background:servicioTurno===sv?color:"#fff",color:servicioTurno===sv?"#fff":"#444",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{sv}</button>
+                      ))}
+                    </div>
+                  </>
+                )}
+                <div style={{background:"#f6f7f9",borderRadius:12,padding:"10px 12px",marginTop:12,fontSize:12,color:"#555",whiteSpace:"pre-line",lineHeight:1.45}}>{mensajeTurno}</div>
+                <button type="button" disabled={!turnoOk} onClick={()=>turnoOk && window.open(`https://wa.me/${waNumero}?text=${encodeURIComponent(mensajeTurno)}`,"_blank")} style={{width:"100%",marginTop:10,background:turnoOk?"#25D366":"#e0e0e0",border:"none",borderRadius:14,padding:"13px",fontSize:13,fontWeight:800,color:"#fff",cursor:turnoOk?"pointer":"not-allowed",fontFamily:"inherit"}}>
+                  {turnoOk ? "💬 Enviar por WhatsApp" : "Elegí día y horario"}
+                </button>
+              </div>
+            )}
+          </>
+        )}
 
         {(cartaUrl || esParaComer) && (
           <>
@@ -222,6 +276,25 @@ function saludoSegunHora(fecha = new Date()) {
   if (h >= 6 && h < 13) return "buen día";
   if (h >= 13 && h < 20) return "buenas tardes";
   return "buenas noches";
+}
+
+const HORARIOS_CANCHA = ["08:00","09:00","10:00","11:00","12:00","14:00","15:00","16:00","17:00","18:00","19:00","20:00","21:00","22:00","23:00"];
+const HORARIOS_BELLEZA = ["09:00","10:00","11:00","12:00","14:00","15:00","16:00","17:00","18:00","19:00","20:00"];
+const DIAS_SEM = ["domingo","lunes","martes","miércoles","jueves","viernes","sábado"];
+const fmtDiaLargo = (iso) => { if(!iso) return "__/__"; const [y,m,d]=iso.split("-").map(Number); return `${DIAS_SEM[new Date(y,m-1,d).getDay()]} ${d}/${m}`; };
+
+function armarMensajeTurno({ nombre, dia, hora, jugadores, servicio, categoria, esCancha }) {
+  const lineas = [`Hola, ${saludoSegunHora()}! 👋`];
+  if (esCancha) {
+    lineas.push(`Vi tu cancha "${nombre}"${categoria ? ` (${categoria})` : ""} en la app Colón 360 y quería consultar si hay turno:`, ``,
+      `📅 Día: ${fmtDiaLargo(dia)}`, `🕐 Hora: ${hora || "__:__"}`, `👥 Jugadores: ${jugadores}`);
+  } else {
+    lineas.push(`Vi "${nombre}" en la app Colón 360 y quería pedir un turno:`, ``,
+      `📅 Día: ${fmtDiaLargo(dia)}`, `🕐 Hora: ${hora || "__:__"}`);
+    if (servicio) lineas.push(`✨ Servicio: ${servicio}`);
+  }
+  lineas.push(``, `¿Tenés disponibilidad? ¡Gracias! 🙌`);
+  return lineas.join("\n");
 }
 
 const fmtFecha = (iso) => (iso ? iso.split("-").reverse().join("/") : "__/__/____");

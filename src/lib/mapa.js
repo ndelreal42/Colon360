@@ -26,6 +26,7 @@ export function catDeLugar(l) {
   if (tipo === "restaurante") return "Rest.";
   if (tipo === "cafe") return "Café";
   if (tipo.startsWith("atr")) return norm(l.categoria) === "deporte" ? "Deporte" : "Atracción";
+  if (tipo === "cancha") return "Deporte";
   return null;
 }
 

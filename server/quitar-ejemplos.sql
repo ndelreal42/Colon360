@@ -1,2 +1,3 @@
--- Borra los paradores y campings de ejemplo (solo los que tienen id que empieza con "ej-").
+-- Borra los ejemplos (lugares y eventos cuyo id empieza con "ej-").
 DELETE FROM lugares WHERE id LIKE 'ej-%';
+DELETE FROM eventos WHERE id LIKE 'ej-%';
