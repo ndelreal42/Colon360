@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { entrarConGoogle, cerrarSesion, borrarCuenta, loginDisponible } from "../lib/cuenta.js";
+import { entrarConGoogle, cerrarSesion, borrarCuenta, loginDisponible, esIPhone } from "../lib/cuenta.js";
 
 const URL_PRIVACIDAD = "https://ndelreal42.github.io/Colon360/privacidad.html";
 const URL_BORRAR = "https://ndelreal42.github.io/Colon360/borrar-cuenta.html";
@@ -72,7 +72,9 @@ export default function CuentaPage({ go, sesion, setSesion }) {
               </button>
             ) : (
               <div style={{ background: "#fff7e6", border: "1px solid #f3d9a4", borderRadius: 14, padding: "12px 14px", fontSize: 13, color: "#7a5a12", lineHeight: 1.4 }}>
-                Entrar con Google está disponible en la app de Colón 360 para Android.
+                {esIPhone()
+                  ? "Muy pronto vas a poder crear tu cuenta desde el iPhone. Mientras tanto, usá la app sin cuenta: funciona igual."
+                  : "Entrar con Google está disponible en la app de Colón 360 para Android."}
               </div>
             )}
             <button onClick={() => go("inicio")} style={{ background: "none", border: "none", color: "#1E88E5", fontSize: 14.5, fontWeight: 800, cursor: "pointer", fontFamily: "inherit", marginTop: 14, padding: 6 }}>

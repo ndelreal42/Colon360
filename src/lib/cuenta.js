@@ -8,7 +8,9 @@ const WEB_CLIENT_ID = "341901557376-eoohasgumo5le22064pm7r2t43oqavgu.apps.google
 const CLAVE = "c360_sesion";
 
 // El login con Google solo funciona dentro de la app de Android. En la versión web se avisa.
-export const loginDisponible = () => Capacitor.isNativePlatform();
+// En iPhone queda apagado hasta sumar "Iniciar sesión con Apple" (Apple lo exige junto con Google).
+export const loginDisponible = () => Capacitor.getPlatform() === "android";
+export const esIPhone = () => Capacitor.getPlatform() === "ios";
 
 export function leerSesion() {
   try {
@@ -39,7 +41,7 @@ async function pedirAlServidor(ruta, opciones = {}) {
 // Devuelve { sesion } si entró, { cancelado:true } si la persona cerró la ventana de Google,
 // o lanza un Error con un mensaje para mostrar.
 export async function entrarConGoogle() {
-  if (!loginDisponible()) throw new Error("Entrar con Google está disponible en la app de Android.");
+  if (!loginDisponible()) throw new Error("Entrar con Google todavía no está disponible acá.");
   let idToken;
   try {
     const SocialLogin = await cargarPlugin();

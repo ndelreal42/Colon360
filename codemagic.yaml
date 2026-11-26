@@ -1,0 +1,47 @@
+# Compilación de la app de iPhone en Codemagic (Macs en la nube, plan gratis de 500 min/mes).
+# Se arranca A MANO desde codemagic.io (botón "Start new build", rama "ios"). No corre sola en cada push.
+# Requisitos (se hacen una sola vez, con la cuenta de Apple ya aprobada):
+#   1. En Codemagic > Team settings > Integrations > Developer Portal: cargar la clave de API de App Store Connect
+#      con el nombre exacto "Colon360 ASC".
+#   2. Reemplazar APP_STORE_APPLE_ID por el "Apple ID" numérico de la app (App Store Connect > la app > Información de la app).
+workflows:
+  ios-testflight:
+    name: Colón 360 iPhone → TestFlight
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    integrations:
+      app_store_connect: Colon360 ASC
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: ar.com.colon360.app
+      node: 22
+      xcode: latest
+      vars:
+        XCODE_PROJECT: "ios/App/App.xcodeproj"
+        XCODE_SCHEME: "App"
+        APP_STORE_APPLE_ID: 0000000000
+    scripts:
+      - name: Instalar dependencias
+        script: npm ci
+      - name: Armar la web para la app
+        script: BUILD_TARGET=capacitor npx vite build
+      - name: Pasar la web al proyecto de iPhone
+        script: npx cap sync ios
+      - name: Firmas de Apple (automáticas)
+        script: xcode-project use-profiles
+      - name: Número de build (uno más que el último de TestFlight)
+        script: |
+          ULTIMO=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" 2>/dev/null || echo 0)
+          NUEVO=$((ULTIMO + 1))
+          echo "Build número $NUEVO"
+          sed -i '' "s/CURRENT_PROJECT_VERSION = [0-9]*;/CURRENT_PROJECT_VERSION = $NUEVO;/g" "$XCODE_PROJECT/project.pbxproj"
+      - name: Compilar el archivo .ipa
+        script: xcode-project build-ipa --project "$XCODE_PROJECT" --scheme "$XCODE_SCHEME"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
