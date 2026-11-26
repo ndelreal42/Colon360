@@ -30,6 +30,11 @@ const TABLES = {
     table: 'juegos', order: 'categoria, nombre', json: ['instrucciones', 'datos'], filterable: ['categoria'],
     cols: ['id', 'categoria', 'nombre', 'desc', 'emoji', 'duracion', 'instrucciones', 'datos'],
   },
+  // Planes de "¿Qué hago ahora?" (se cargan y editan desde el panel).
+  planes: {
+    table: 'planes', order: 'tipo, titulo', json: [], filterable: ['tipo'], visible: true,
+    cols: ['titulo', 'detalle', 'emoji', 'tipo', 'costo', 'momento', 'clima', 'dias', 'lugar', 'lat', 'lng', 'abre', 'visible'],
+  },
   // ---- Panel admin (privadas) ----
   clientes: {
     table: 'clientes', order: 'nombre', json: [], filterable: ['estado', 'cat'], private: true,

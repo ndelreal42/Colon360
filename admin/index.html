@@ -348,7 +348,7 @@ const S = {
   demo: false,
   screen: (location.hash || "#inicio").slice(1),
   menu: false,
-  db: { lugares: [], eventos: [], servicios: [], clientes: [], pendientes: [], notificaciones: [], manual: [], notas: [] },
+  db: { lugares: [], eventos: [], servicios: [], planes: [], clientes: [], pendientes: [], notificaciones: [], manual: [], notas: [] },
   faltaManual: false,
   man: { sel: null, edit: false, draft: null, ticks: {} },
   faltaMigracion: false,
@@ -375,11 +375,12 @@ async function api(method, path, body) {
   }
   return data;
 }
-const TABLAS = ["lugares", "eventos", "servicios", "clientes", "pendientes", "notificaciones", "manual", "notas"];
+const TABLAS = ["lugares", "eventos", "servicios", "planes", "clientes", "pendientes", "notificaciones", "manual", "notas"];
 async function cargar(tabla) {
   try {
     S.db[tabla] = (await api("GET", "/" + tabla)) || [];
   } catch (e) {
+    if (tabla === "planes" && (/no such table/i.test(e.message) || e.status === 404)) { S.faltaPlanes = true; S.db.planes = []; return; }
     if (["manual", "notas"].includes(tabla) && (/no such table/i.test(e.message) || e.status === 404)) { S.faltaManual = true; S.db[tabla] = []; return; }
     if (["clientes", "pendientes", "notificaciones"].includes(tabla) && (/no such table/i.test(e.message) || e.status === 404)) { S.faltaMigracion = true; S.db[tabla] = []; return; }
     throw e;
@@ -388,6 +389,7 @@ async function cargar(tabla) {
 async function cargarTodo() {
   S.faltaMigracion = false;
   S.faltaManual = false;
+  S.faltaPlanes = false;
   await Promise.all(TABLAS.map(cargar));
   if (!S.demo && S.db.lugares.length && S.db.lugares[0].visible === undefined) S.faltaMigracion = true;
 }
@@ -473,6 +475,7 @@ const IC = {
   clientes: '<circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-6 7-6s7 2 7 6M16 4a4 4 0 0 1 0 8M22 21c0-3-2-5-4-6"/>',
   fichas: '<path d="M4 10v10h16V10M3 4h18l-1 6H4z"/><path d="M10 20v-5h4v5"/>',
   eventos: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+  planes: '<circle cx="12" cy="12" r="9"/><path d="M13 6l-2 6h4l-2 6"/>',
   servicios: '<path d="M12 21s-7-4.5-7-11a7 7 0 0 1 14 0c0 6.5-7 11-7 11z"/><path d="M12 7v6M9 10h6"/>',
   pendientes: '<path d="M3 13h5l2 3h4l2-3h5M5 5h14l2 8v6H3v-6z"/>',
   notif: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10 21h4"/>',
@@ -488,7 +491,7 @@ const IC = {
 };
 const svg = (k, s = 18) => `<svg aria-hidden="true" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${IC[k]}</svg>`;
 const PANTALLAS = [
-  ["inicio", "Inicio"], ["clientes", "Clientes"], ["fichas", "Fichas en la app"], ["eventos", "Eventos"], ["servicios", "Servicios"], ["pendientes", "Pendientes"],
+  ["inicio", "Inicio"], ["clientes", "Clientes"], ["fichas", "Fichas en la app"], ["eventos", "Eventos"], ["servicios", "Servicios"], ["planes", "Qué hago ahora"], ["pendientes", "Pendientes"],
   ["notif", "Notificaciones"], ["cobros", "Cobros"], ["notas", "Notas"], ["manual", "Manual"], ["ajustes", "Ajustes"],
 ];
 const tituloDe = (k) => (PANTALLAS.find((p) => p[0] === k) || ["", ""])[1];
@@ -499,7 +502,7 @@ function vistaMenu() {
   return `<button type="button" class="iconbtn close" data-act="menu" aria-label="Cerrar menú">×</button>
   <div class="brand"><img src="logo.png" alt="Logo de Colón 360" width="48" height="48"><div><b>Colón 360</b><span>${S.demo ? "Modo ejemplo" : "Panel admin"}</span></div></div>
   <div class="grp">Contenido de la app</div>
-  ${it("inicio", "Inicio")}${it("clientes", "Clientes")}${it("fichas", "Fichas en la app")}${it("eventos", "Eventos")}${it("servicios", "Servicios")}
+  ${it("inicio", "Inicio")}${it("clientes", "Clientes")}${it("fichas", "Fichas en la app")}${it("eventos", "Eventos")}${it("servicios", "Servicios")}${it("planes", "Qué hago ahora")}
   ${it("pendientes", "Pendientes", np ? `<span class="badge">${np}</span>` : "")}
   <div class="grp">Herramientas</div>
   ${it("notas", "Notas", notasHoy().length ? `<span class="badge">${notasHoy().length}</span>` : "")}${it("manual", "Manual")}${it("notif", "Notificaciones")}${it("cobros", "Cobros")}${it("ajustes", "Ajustes")}
@@ -836,6 +839,39 @@ const fmtEv = (iso) => { const d = parseISO(iso); return d ? { dia: pad(d.getDat
 // =====================================================================
 //  SERVICIOS
 // =====================================================================
+const PL_TIPOS = [["paseo", "Paseo / caminata"], ["mate", "Mate / relax al aire libre"], ["comida", "Comer o tomar algo"], ["cultura", "Cultura y lugares"], ["playa", "Playa y río"], ["deporte", "Deporte"], ["compras", "Compras / feria"], ["relax", "Termas y bienestar"], ["familia", "Con chicos"], ["app", "Abre una sección de la app"]];
+const PL_MOMENTOS = [["manana", "Mañana"], ["mediodia", "Mediodía"], ["tarde", "Tarde"], ["atardecer", "Atardecer"], ["noche", "Noche"]];
+const PL_ABRE = [["", "— Nada —"], ["gastronomia", "Dónde comer"], ["playas", "Playas"], ["alojamientos", "Alojamientos"], ["atractivos", "Explorar / eventos"], ["deporte", "Deporte"], ["belleza", "Belleza"], ["mapa", "Mapa"], ["planner", "Planner"], ["juegos", "Juegos"], ["servicios", "Servicios"]];
+function borradorPlan(x) {
+  const ms = String(x.momento || "").split(",").map((t) => t.trim());
+  const b = { _id: x.id, titulo: x.titulo || "", detalle: x.detalle || "", emoji: x.emoji || "✨", tipo: x.tipo || "paseo", costo: x.costo || "", clima: x.clima || "", dias: x.dias || "", lugar: x.lugar || "", abre: x.abre || "", visible: x.visible === undefined || x.visible === null ? 1 : Number(x.visible) ? 1 : 0, ubic: x.lat != null && x.lat !== "" ? x.lat + ", " + x.lng : "" };
+  PL_MOMENTOS.forEach(([k]) => { b["m_" + k] = ms.includes(k) ? 1 : 0; });
+  return b;
+}
+function vPlanes() {
+  const q = norm(S.q.pl);
+  const ps = S.db.planes.filter((p) => !q || norm([p.titulo, p.detalle, p.tipo, p.lugar].join(" ")).includes(q));
+  const v = S.d.pl;
+  const tipoL = (t) => (PL_TIPOS.find((x) => x[0] === t) || [t, t || "—"])[1];
+  const aviso = S.faltaPlanes ? '<div class="banner amb">Falta crear la tabla de planes. En la carpeta <b>server</b> corré: <code>npx.cmd wrangler d1 execute colon360 --remote --file=migracion-planes.sql</code> (una sola vez). Mientras tanto la app usa su lista de planes de siempre.</div>' : "";
+  return `<div class="head"><div><h1>Planes de “¿Qué hago ahora?”</h1><p>Ideas simples que la app sugiere según la hora, el clima y el día. Cuantos más planes cargues, más variadas son las sugerencias. ${S.db.planes.length} cargados.</p></div><div class="row">${ejemplo()}<button type="button" class="btn dark" data-act="nuevoPlan" ${S.faltaPlanes ? "disabled" : ""}>+ Nuevo plan</button></div></div>${aviso}
+  <div class="split ${S.det.planes ? "det" : ""}">
+    <div class="list">
+      ${buscador("pl", "Buscar plan…")}
+      ${ps.length ? ps.map((p) => `<div class="item ${v && String(v._id) === String(p.id) ? "on" : ""}"><button type="button" class="main" data-act="abrir" data-arg="planes|${esc(p.id)}"><span class="emo" style="background:#F9A82522">${esc(p.emoji || "✨")}</span><span style="min-width:0;flex:1"><span class="tt">${esc(p.titulo)}</span><span class="st">${esc(tipoL(p.tipo))}${p.costo ? " · " + esc(p.costo) : ""}${Number(p.visible) === 0 ? " · oculto" : ""}</span></span></button></div>`).join("") : '<div class="empty">No hay planes.</div>'}
+    </div>
+    <div class="detail">${v ? `${atras("planes", "Volver a la lista")}<section class="panel"><h2>${v._id ? esc(v.titulo) : "Nuevo plan"}</h2><div class="form">
+      <div class="g2">${inp("pl.titulo", "Qué hacer (título corto)", v.titulo, 'placeholder="Tomar unos mates en el puerto"')}${inp("pl.emoji", "Ícono", v.emoji, 'maxlength="4" style="font-size:20px;text-align:center"')}</div>
+      ${inp("pl.detalle", "Detalle (una frase)", v.detalle, 'placeholder="Llevá el termo y sentate frente al río."')}
+      <div class="g3">${sel("pl.tipo", "Tipo de plan", v.tipo, PL_TIPOS.map(([k, l]) => ({ v: k, l })))}${sel("pl.costo", "¿Cuánto cuesta?", v.costo, [{ v: "", l: "No mostrar" }, { v: "gratis", l: "Gratis" }, { v: "poco", l: "Poco gasto" }, { v: "medio", l: "$$" }])}${sel("pl.dias", "Días", v.dias, [{ v: "", l: "Todos" }, { v: "finde", l: "Solo fin de semana" }, { v: "semana", l: "Solo entre semana" }])}</div>
+      <div class="f"><span>¿A qué hora conviene? <span class="h">(si no marcás ninguna, sirve a cualquier hora)</span></span><div class="row" style="flex-wrap:wrap;gap:6px 14px;margin-top:6px">${PL_MOMENTOS.map(([k, l]) => chk("pl.m_" + k, l, v["m_" + k])).join("")}</div></div>
+      <div class="g2">${sel("pl.clima", "¿Con qué clima?", v.clima, [{ v: "", l: "Cualquiera" }, { v: "lindo", l: "Día lindo (aire libre)" }, { v: "calor", l: "Calor" }, { v: "frio", l: "Frío" }, { v: "lluvia", l: "Lluvia" }])}${inp("pl.lugar", "Lugar (para el botón “Cómo llegar”)", v.lugar, 'placeholder="Cartel de Colón"')}</div>
+      <div class="g2">${inp("pl.ubic", "Ubicación exacta (opcional)", v.ubic, 'placeholder="-32.2255, -58.1405"')}${sel("pl.abre", "Botón para abrir en la app (opcional)", v.abre, PL_ABRE.map(([k, l]) => ({ v: k, l })))}</div>
+      ${chk("pl.visible", "Mostrar en la app", Number(v.visible))}
+    </div><div class="row"><button type="button" class="btn dark" data-act="guardarPlan">${v._id ? "Guardar cambios" : "Crear plan"}</button>${v._id ? `<button type="button" class="btn peligro sm" data-act="borrarPlan" data-arg="${esc(v._id)}">Borrar</button>` : ""}</div></section>` : '<div class="empty">Elegí un plan para editarlo o creá uno nuevo.</div>'}</div>
+  </div>`;
+}
+
 function vServicios() {
   const q = norm(S.q.sv);
   const svs = S.db.servicios.filter((s) => !q || norm([s.nombre, s.cat, s.info].join(" ")).includes(q));
@@ -1234,6 +1270,9 @@ function demoSembrar() {
       { id: "show-costanera", titulo: "Show en vivo en la costanera", dia: pad(parseISO(dd(9)).getDate()), mes: MESES[parseISO(dd(9)).getMonth()], emoji: "🎶", color: "#e53935", lugar: "Anfiteatro", horario: "21 h", tel: "", desc: "Música en vivo gratis.", info: [], tags: [] },
       { id: "e0", titulo: "Finde Largo de Pascuas", dia: "17", mes: "ABR", emoji: "🐣", color: "#2E7D32", lugar: "", horario: "", tel: "", desc: "", info: [], tags: [] },
     ],
+    planes: [
+      { id: 1, titulo: "Mates en el puerto mirando el río", detalle: "Un banco, el termo y el ir y venir del puerto.", emoji: "🧉", tipo: "mate", costo: "gratis", momento: "manana,tarde,atardecer", clima: "lindo", dias: "", lugar: "Puerto de Colón", lat: null, lng: null, abre: "", visible: 1 },
+    ],
     servicios: [
       { id: 1, nombre: "Policía", cat: "Emergencias", emoji: "🚔", info: "Comisaría 1ª", horario: "24hs", tel: "911", color: "#1565C0", urgente: 1 },
       { id: 2, nombre: "Hospital San Benjamín", cat: "Salud", emoji: "🏥", info: "Almirante Brown 240", horario: "Urgencias 24hs", tel: "107", color: "#e53935", urgente: 1 },
@@ -1266,7 +1305,7 @@ async function demoApi(method, path, body) {
   if (method === "GET") return copia(tab);
   if (method === "POST") {
     const row = copia(body);
-    if (t === "servicios") row.id = Math.max(0, ...tab.map((x) => x.id)) + 1;
+    if (t === "servicios" || t === "planes") row.id = Math.max(0, ...tab.map((x) => x.id)) + 1;
     if (tab.some((x) => String(x.id) === String(row.id))) throw new Error("UNIQUE constraint failed");
     tab.push(row); return { ok: true };
   }
@@ -1320,6 +1359,7 @@ const A = {
     if (pant === "clientes") { const c = clientePorId(id); if (!c) return; S.d.cli = { ...c }; }
     if (pant === "fichas") { const l = S.db.lugares.find((x) => String(x.id) === id); if (!l) return; S.d.fx = borradorFicha(l); }
     if (pant === "eventos") { const e = S.db.eventos.find((x) => String(x.id) === id); if (!e) return; S.d.ev = borradorEvento(e); }
+    if (pant === "planes") { const x = S.db.planes.find((q) => String(q.id) === id); if (!x) return; S.d.pl = borradorPlan(x); }
     if (pant === "servicios") { const s = S.db.servicios.find((x) => String(x.id) === id); if (!s) return; S.d.sv = { ...s, _id: s.id }; }
     if (pant === "pendientes") { const p = S.db.pendientes.find((x) => x.id === id); if (!p) return; S.d.pd = { _id: p.id, tipo: p.tipo, origen: p.origen, mensaje: p.mensaje, lugar_id: p.lugar_id, cambios: p.cambios || [], d: { cat: "Otros", ...(p.datos || {}) }, estado: "Prueba gratis", publicar: true }; }
     S.screen = pant; location.hash = pant; S.det[pant] = true; render(); arriba();
@@ -1500,6 +1540,22 @@ const A = {
     catch (er) { toast("No se pudo borrar: " + er.message, true); }
   },
 
+  // ---------- planes (¿Qué hago ahora?) ----------
+  nuevoPlan() { S.d.pl = borradorPlan({ id: null, emoji: "✨", tipo: "paseo", visible: 1 }); S.det.planes = true; render(); arriba(); },
+  async guardarPlan() {
+    const v = S.d.pl;
+    if (!String(v.titulo || "").trim()) { toast("Falta el título.", true); return; }
+    let lat = null, lng = null;
+    const m = String(v.ubic || "").match(/(-?\d+(?:\.\d+)?)\s*[,;\s]\s*(-?\d+(?:\.\d+)?)/);
+    if (m) { lat = Number(m[1]); lng = Number(m[2]); }
+    const body = { titulo: v.titulo.trim(), detalle: (v.detalle || "").trim(), emoji: v.emoji || "✨", tipo: v.tipo || "paseo", costo: v.costo || "", momento: PL_MOMENTOS.filter(([k]) => Number(v["m_" + k])).map(([k]) => k).join(","), clima: v.clima || "", dias: v.dias || "", lugar: (v.lugar || "").trim(), lat, lng, abre: v.abre || "", visible: Number(v.visible) ? 1 : 0 };
+    const ok = await guardar("planes", v._id ?? null, body, v._id ? "✓ Plan guardado." : "✓ Plan creado.");
+    if (ok) { if (v._id) S.d.pl = borradorPlan(S.db.planes.find((p) => String(p.id) === String(v._id))); else { S.d.pl = null; S.det.planes = false; } render(); }
+  },
+  async borrarPlan(id) {
+    if (!confirm("¿Borrar este plan?")) return;
+    if (await borrar("planes", id, "Plan borrado.")) { S.d.pl = null; S.det.planes = false; render(); }
+  },
   // ---------- servicios ----------
   nuevoServicio() { S.d.sv = { _id: null, nombre: "", cat: "", emoji: "📞", info: "", horario: "", tel: "", color: "#1565C0", urgente: 0 }; S.det.servicios = true; render(); arriba(); },
   async guardarServicio() {
@@ -1670,7 +1726,7 @@ async function altaCliente(c, ficha, publicar) {
 // =====================================================================
 //  PINTAR Y ESCUCHAR
 // =====================================================================
-const VISTAS = { inicio: vInicio, clientes: vClientes, fichas: vFichas, eventos: vEventos, servicios: vServicios, pendientes: vPendientes, notif: vNotif, cobros: vCobros, notas: vNotas, manual: vManual, ajustes: vAjustes };
+const VISTAS = { inicio: vInicio, clientes: vClientes, fichas: vFichas, eventos: vEventos, servicios: vServicios, planes: vPlanes, pendientes: vPendientes, notif: vNotif, cobros: vCobros, notas: vNotas, manual: vManual, ajustes: vAjustes };
 function render() {
   if (!VISTAS[S.screen]) S.screen = "inicio";
   const ae = document.activeElement;

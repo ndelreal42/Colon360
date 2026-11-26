@@ -21,6 +21,7 @@ import AhoraModePage from "./components/AhoraModePage";
 import { useRioAltura } from "./hooks/useRioAltura.js";
 import { useLugares } from "./hooks/useLugares.js";
 import { useEventos } from "./hooks/useEventos.js";
+import { usePlanes } from "./hooks/usePlanes.js";
 import CuentaPage from "./components/CuentaPage.jsx";
 import BienvenidaCuenta, { bienvenidaDescartada } from "./components/BienvenidaCuenta.jsx";
 import { leerSesion, verificarSesion, loginDisponible } from "./lib/cuenta.js";
@@ -45,6 +46,7 @@ export default function Colon360() {
   const { data: restaurantesAPI } = useLugares("restaurante");
   const { data: alojamientosAPI } = useLugares("hotel");
 const { data: eventosAPI } = useEventos();
+  const { data: planesAPI } = usePlanes();
   const { data: lugaresTodos } = useLugares();
   // Los paradores/carritos y campings se muestran dentro de la ficha de su playa, no en los listados generales.
   const esDePlaya = l => l.tipo==="parador" || l.tipo==="camping";
@@ -389,7 +391,7 @@ const { data: eventosAPI } = useEventos();
             </div>
 
             {/* ¿QUÉ HAGO AHORA? — botón grande con una recomendación */}
-            {(()=>{const rec=getRecomendacionAhora(new Date(),clima); return (
+            {(()=>{const rec=getRecomendacionAhora(new Date(),clima,{planes:planesAPI,eventos:eventosAPI,lugares:lugaresTodos,userPos}); return (
             <button data-tut="ahora" onClick={()=>go("ahoramode")} style={{width:"100%",flex:1,minHeight:108,background:"linear-gradient(135deg,#F9A825,#FF6F00)",border:"none",borderRadius:18,padding:"12px 14px",cursor:"pointer",fontFamily:"inherit",display:"flex",flexDirection:"column",justifyContent:"space-between",gap:9,boxShadow:"0 6px 18px rgba(249,168,37,0.42)",boxSizing:"border-box",textAlign:"left"}}>
               <div style={{display:"flex",alignItems:"center",gap:12}}>
                 <div style={{width:44,height:44,borderRadius:13,background:"rgba(255,255,255,0.22)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:25,flexShrink:0}}>⚡</div>
@@ -633,7 +635,7 @@ const { data: eventosAPI } = useEventos();
       )}
 
       {/* ══ AHORA MODE ══ */}
-      {tab==="ahoramode" && <AhoraModePage go={go} userPos={userPos} clima={clima}/>}
+      {tab==="ahoramode" && <AhoraModePage go={go} userPos={userPos} clima={clima} planes={planesAPI} lugares={lugaresTodos} eventos={eventosAPI}/>}
 
       {/* ══ JUEGOS ══ */}
       {tab==="juegos" && <JuegosPage go={go} juegoCategoria={juegoCategoria} setJuegoCategoria={setJuegoCategoria}/>}

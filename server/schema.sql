@@ -141,3 +141,21 @@ CREATE TABLE IF NOT EXISTS notas (
   hecha       INTEGER DEFAULT 0,
   creada      TEXT               -- fecha y hora ISO
 );
+
+-- Planes de ¿Qué hago ahora? (se cargan con migracion-planes.sql)
+CREATE TABLE IF NOT EXISTS planes (
+  id      INTEGER PRIMARY KEY AUTOINCREMENT,
+  titulo  TEXT NOT NULL,
+  detalle TEXT,
+  emoji   TEXT,
+  tipo    TEXT,      -- paseo, mate, comida, cultura, playa, deporte, compras, relax, familia, app
+  costo   TEXT,      -- gratis, poco, medio o vacío
+  momento TEXT,      -- manana,mediodia,tarde,atardecer,noche (vacío = a cualquier hora)
+  clima   TEXT,      -- vacío, lindo, calor, frio, lluvia
+  dias    TEXT,      -- vacío, finde, semana
+  lugar   TEXT,      -- nombre para buscar en Google Maps
+  lat     REAL,
+  lng     REAL,
+  abre    TEXT,      -- sección de la app que abre el botón
+  visible INTEGER DEFAULT 1
+);
