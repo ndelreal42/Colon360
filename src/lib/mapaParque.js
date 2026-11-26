@@ -12,11 +12,28 @@ const CSS = ".mp{\n  --land:#d3e6a8; --river:#84c6e4; --road:#fffaf0; --road1:#f
 
 const MARKUP = "<div id=\"mp-app\" class=\"mp\">\n  <svg id=\"mp-map\" class=\"mp-map\" role=\"img\" aria-label=\"Mapa ilustrado de Colón, Entre Ríos, con calles reales\">\n    <defs>\n      <pattern id=\"mp-waves\" width=\"90\" height=\"34\" patternUnits=\"userSpaceOnUse\">\n        <path d=\"M4 17 q11-9 22 0 t22 0\" fill=\"none\" stroke=\"#ffffff\" stroke-opacity=\".5\" stroke-width=\"3\" stroke-linecap=\"round\"/>\n      </pattern>\n      <pattern id=\"mp-trees\" width=\"46\" height=\"40\" patternUnits=\"userSpaceOnUse\">\n        <circle cx=\"12\" cy=\"12\" r=\"9\" fill=\"#6fb35b\" stroke=\"#33402e\" stroke-width=\"2\"/>\n        <circle cx=\"34\" cy=\"30\" r=\"8\" fill=\"#79bd62\" stroke=\"#33402e\" stroke-width=\"2\"/>\n      </pattern>\n      <pattern id=\"mp-pitchlines\" width=\"16\" height=\"16\" patternUnits=\"userSpaceOnUse\">\n        <rect width=\"8\" height=\"16\" fill=\"#a4d692\"/>\n      </pattern>\n    </defs>\n    <g id=\"mp-world\"></g>\n  </svg>\n\n  <div class=\"top\">\n    <div class=\"row1\">\n      <button class=\"back\" id=\"mp-back\" aria-label=\"Volver\">‹</button>\n      <div class=\"search\">\n        <input id=\"mp-q\" type=\"search\" placeholder=\"Calle, esquina o lugar…\" autocomplete=\"off\" aria-label=\"Buscar calle o lugar\">\n        <div class=\"results\" id=\"mp-res\" hidden></div>\n      </div>\n    </div>\n    <div class=\"chips\" id=\"mp-chips\" role=\"toolbar\" aria-label=\"Filtrar el mapa\"></div>\n  </div>\n\n  <div class=\"lvl\" id=\"mp-lvl\">Acercá el mapa: aparecen más lugares y los nombres de las calles.</div>\n  <div class=\"scale\" id=\"mp-scale\"><span id=\"mp-scaleTxt\">200 m</span><i id=\"mp-scaleBar\" style=\"width:80px\"></i></div>\n  <div class=\"osm\">Calles © <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\" rel=\"noopener\">OpenStreetMap</a></div>\n\n  <div class=\"zoom\">\n    <button class=\"zbtn\" id=\"mp-zme\" aria-label=\"Mi ubicación\" style=\"font-size:19px\">◎</button>\n    <button class=\"zbtn\" id=\"mp-zin\" aria-label=\"Acercar\">+</button>\n    <button class=\"zbtn\" id=\"mp-zout\" aria-label=\"Alejar\">−</button>\n    <button class=\"zbtn\" id=\"mp-zhome\" aria-label=\"Volver al centro de Colón\" style=\"font-size:17px\">⌂</button>\n  </div>\n\n  <div class=\"sheet\" id=\"mp-sheet\" aria-live=\"polite\">\n    <div class=\"row\">\n      <div class=\"ic\" id=\"mp-sIc\"></div>\n      <div style=\"min-width:0\">\n        <div class=\"cat\" id=\"mp-sCat\"></div>\n        <h2 id=\"mp-sName\"></h2>\n        <p id=\"mp-sDesc\"></p>\n        <div class=\"tags\" id=\"mp-sTags\"></div>\n        <button class=\"ver\" id=\"mp-sVer\" hidden>Ver ficha ›</button><a class=\"go\" id=\"mp-sGo\" target=\"_blank\" rel=\"noopener\">Cómo llegar ↗</a>\n      </div>\n      <button class=\"close\" id=\"mp-sClose\" aria-label=\"Cerrar ficha\">✕</button>\n    </div>\n  </div>\n</div>";
 
+// Barra de arriba (volver, buscador y etiquetas) con el mismo estilo del resto de la app: blanco, redondeado, sombra suave y DM Sans.
+// El dibujo del mapa y los botones de zoom no se tocan.
+const CSS_APP = `
+.mp .back{width:42px;height:42px;border:none;border-radius:50%;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.2);font:600 24px/1 'DM Sans',system-ui,sans-serif;color:#1a1a2e;padding:0 0 3px;align-self:flex-start}
+.mp .search input{border:none;border-radius:21px;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.2);font:500 14px 'DM Sans',system-ui,sans-serif;color:#1a1a2e;padding:0 16px;min-height:42px}
+.mp .search input::placeholder{color:#9a9a9a}
+.mp .search input:focus-visible{outline:none;box-shadow:0 0 0 2px #1E88E5,0 2px 10px rgba(0,0,0,.2)}
+.mp .results{border:none;border-radius:16px;background:#fff;box-shadow:0 6px 22px rgba(0,0,0,.22)}
+.mp .results button{font:600 13px 'DM Sans',system-ui,sans-serif;color:#1a1a2e;border-bottom:1px solid #f0ede6}
+.mp .results button:hover,.mp .results button:focus-visible{background:#f5f7fa}
+.mp .results small{font:700 10px 'DM Sans',system-ui,sans-serif;color:#9a9a9a;letter-spacing:.08em}
+.mp .chip{font:700 12px 'DM Sans',system-ui,sans-serif;color:#1a1a2e;background:#fff;border:none;border-radius:20px;padding:8px 14px;box-shadow:0 2px 8px rgba(0,0,0,.2)}
+.mp .chips{padding:2px 2px 8px}
+.mp .chip[aria-pressed="false"]{background:rgba(255,255,255,.9);color:#8a8a8a;box-shadow:0 1px 5px rgba(0,0,0,.14);transform:none}
+.mp .chip.alt{background:#1a1a2e;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+`;
+
 export function crearMapaParque(root, opts = {}) {
   if (!document.getElementById("mp-estilos")) {
     const st = document.createElement("style");
     st.id = "mp-estilos";
-    st.textContent = CSS;
+    st.textContent = CSS + CSS_APP;
     document.head.appendChild(st);
   }
   root.innerHTML = MARKUP;
